@@ -10,9 +10,11 @@ from logging.handlers import RotatingFileHandler
 
 from telegram.ext import ApplicationBuilder
 from config import (
-    TOKEN, ADMIN_ID, DB_FILE, BOTS_DIR, LOG_DIR, 
-    ERROR_LOG_FILE, BACKUP_DIR, VERSION, VERSION_NAME
+    TOKEN, ADMIN_ID, DB_FILE, BOTS_DIR, LOG_DIR,
+    ERROR_LOG_FILE, BACKUP_DIR, VERSION, VERSION_NAME,
+    validate_credentials
 )
+from settings_manager import settings_manager
 
 def setup_logging():
     """إعداد نظام التسجيل المحسن"""
@@ -55,31 +57,32 @@ def setup_logging():
     return logger
 
 def check_requirements():
-    """التحقق من المتطلبات"""
-    errors = []
-    
-    if not TOKEN or TOKEN == "":
-        errors.append("❌ لم يتم تعيين TELEGRAM_BOT_TOKEN")
-    
-    if not ADMIN_ID or ADMIN_ID == 0:
-        errors.append("❌ لم يتم تعيين ADMIN_ID")
-    
-    if errors:
+    """التحقق من المتطلبات والإعدادات"""
+    # التحقق من بيانات الاعتماد
+    try:
+        validate_credentials()
+    except ValueError as e:
         print("\n" + "="*50)
-        print("⚠️ أخطاء في التكوين:")
-        print("="*50)
-        for error in errors:
-            print(error)
+        print(e)
         print("\n💡 تأكد من إعداد ملف .env بشكل صحيح")
         print("   TELEGRAM_BOT_TOKEN=your_token_here")
         print("   ADMIN_ID=your_telegram_id")
         print("="*50 + "\n")
         sys.exit(1)
-    
+
+    # التحقق من الإعدادات
+    if not settings_manager.load_settings():
+        print("⚠️ تحذير: لم يتم العثور على ملف الإعدادات settings.json")
+        print("سيتم استخدام الإعدادات الافتراضية")
+
     # إنشاء المجلدات
     Path(BOTS_DIR).mkdir(exist_ok=True)
     Path(LOG_DIR).mkdir(exist_ok=True)
     Path(BACKUP_DIR).mkdir(exist_ok=True)
+
+    # إنشاء مجلد مؤقت للتحميلات
+    Path("temp").mkdir(exist_ok=True)
+    Path("uploads").mkdir(exist_ok=True)
 
 def create_app():
     """إنشاء تطبيق البوت"""

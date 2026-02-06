@@ -10,14 +10,22 @@ from enum import Enum
 # ═══════════════════════════════════════════════════════════════════════════
 
 # التوكن والمعرفات
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8538154655:AAHMJDzyqI39xbMKrvNix-4CoEaztpiTSG8")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "8049455831")) if os.getenv("ADMIN_ID") else 8049455831
-DEVELOPER_USERNAME = "@ahmaddragon"
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0")) if os.getenv("ADMIN_ID") else 0
+DEVELOPER_USERNAME = os.getenv("DEVELOPER_USERNAME", "support")
 
 # معلومات الإصدار
-VERSION = "8.1.0"
-VERSION_NAME = "Enhanced Edition"
-RELEASE_DATE = "يناير 2026"
+VERSION = "8.5.0"
+VERSION_NAME = "Ultimate Edition"
+RELEASE_DATE = "فبراير 2026"
+
+# التحقق من بيانات اعتماد مهمة عند البدء
+def validate_credentials():
+    """التحقق من بيانات الاعتماد عند بدء التطبيق"""
+    if not TOKEN or TOKEN == "":
+        raise ValueError("❌ TELEGRAM_BOT_TOKEN غير محدد في متغيرات البيئة")
+    if ADMIN_ID == 0:
+        raise ValueError("❌ ADMIN_ID غير محدد في متغيرات البيئة")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # إعدادات الملفات والمجلدات
