@@ -192,7 +192,8 @@ async def successful_payment_callback(update: Update, context: ContextTypes.DEFA
     # فك تشفير payload
     try:
         user_from_payload, plan = PaymentSystem.parse_invoice_payload(successful_payment.invoice_payload)
-    except:
+    except (ValueError, TypeError, IndexError) as e:
+        logger.warning(f"⚠️ خطأ في معالجة payload: {e}")
         await message.reply_text(
             "❌ خطأ في معالجة الدفع. يرجى التواصل مع الدعم."
         )

@@ -541,8 +541,8 @@ class Database:
                 exp_date = datetime.fromisoformat(end_date)
                 if datetime.now(timezone.utc) > exp_date:
                     return 'free'
-            except:
-                pass
+            except (ValueError, TypeError) as e:
+                logger.warning(f"⚠️ خطأ في تحليل تاريخ انتهاء الخطة: {e}")
         
         return plan if plan else 'free'
 

@@ -320,8 +320,10 @@ async def handle_bot_zip(update: Update, context: ContextTypes.DEFAULT_TYPE, db,
                 )
                 await asyncio.wait_for(process.wait(), timeout=180)
                 requirements_installed = True
-            except:
-                pass
+            except asyncio.TimeoutError:
+                logger.warning(f"⏱️ انتهت مهلة تثبيت المتطلبات للبوت {folder}")
+            except Exception as e:
+                logger.warning(f"⚠️ خطأ في تثبيت المتطلبات: {e}")
         
         # إضافة البوت
         bot_name = Path(doc.file_name).stem

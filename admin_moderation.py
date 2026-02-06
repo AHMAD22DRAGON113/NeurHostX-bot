@@ -78,10 +78,13 @@ class AdminModeration:
             if reason:
                 log_message += f" - السبب: {reason}"
 
-            db.set_setting(
-                f"ban_log_{user_id}",
-                f"{datetime.now(timezone.utc).isoformat()}|{log_message}"
-            )
+            try:
+                db.set_setting(
+                    f"ban_log_{user_id}",
+                    f"{datetime.now(timezone.utc).isoformat()}|{log_message}"
+                )
+            except Exception as e:
+                logger.warning(f"⚠️ خطأ في تسجيل حدث الحظر: {e}")
 
             logger.info(f"✅ تم حظر المستخدم {user_id} من قبل {admin_id}")
             return True, f"✅ تم حظر المستخدم {user_id} بنجاح"

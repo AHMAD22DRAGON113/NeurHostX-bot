@@ -129,7 +129,7 @@ def get_file_size(path):
             path = Path(path)
         size = path.stat().st_size
         return format_size(size)
-    except:
+    except (OSError, ValueError, AttributeError):
         return "غير معروف"
 
 def format_size(size_bytes):
@@ -281,7 +281,7 @@ def is_safe_path(base_path: Path, check_path: Path) -> bool:
         base = base_path.resolve()
         check = check_path.resolve()
         return str(check).startswith(str(base))
-    except:
+    except (OSError, ValueError, AttributeError):
         return False
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -348,7 +348,7 @@ def get_bot_id_from_callback(data: str) -> int:
             if part and part.isdigit():
                 return int(part)
         return None
-    except:
+    except (ValueError, TypeError, AttributeError, IndexError):
         return None
 
 def generate_unique_folder(prefix: str, user_id: int) -> str:
