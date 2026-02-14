@@ -11,7 +11,7 @@ from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 
 from database import Database
-from payment_system import PaymentSystem, get_plan_emoji, get_plan_name
+from unified_payment_system import UnifiedPaymentSystem, HostingPackage
 from formatters import MessageBuilder
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ async def plans_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Dat
 
     # عرض الخطط
     for plan in ['pro', 'ultra', 'supreme']:
-        info = PaymentSystem.get_plan_info(plan)
+        info = UnifiedPaymentSystem.get_plan_info(plan)
         if not info:
             continue
 
@@ -75,7 +75,7 @@ async def select_plan_to_buy(update: Update, context: ContextTypes.DEFAULT_TYPE,
     user_id = query.from_user.id
 
     # الحصول على معلومات الخطة
-    plan_details = PaymentSystem.format_plan_details(plan)
+    plan_details = UnifiedPaymentSystem.format_plan_details(plan)
 
     # بناء الرسالة
     builder = MessageBuilder()
@@ -85,7 +85,7 @@ async def select_plan_to_buy(update: Update, context: ContextTypes.DEFAULT_TYPE,
     builder.add_empty_line()
 
     # عرض السعر
-    price, _ = PaymentSystem.get_plan_price(plan)
+    price, _ = UnifiedPaymentSystem.get_plan_price(plan)
     builder.add_text(f"<b>💳 السعر النهائي: {price} نجم</b>")
     builder.add_empty_line()
     builder.add_text("<i>بعد اختيار الدفع، ستظهر لك نافذة الدفع الآمنة</i>")
@@ -118,13 +118,13 @@ async def send_payment_invoice(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     # الحصول على معلومات الخطة
-    plan_info = PaymentSystem.get_plan_info(plan)
-    price, currency = PaymentSystem.get_plan_price(plan)
+    plan_info = UnifiedPaymentSystem.get_plan_info(plan)
+    price, currency = UnifiedPaymentSystem.get_plan_price(plan)
 
     # إنشاء بيانات الفاتورة
     title = f"شراء خطة {plan_info['name']}"
     description = f"شراء الخطة {plan_info['name']} - {plan_info['description']}"
-    payload = PaymentSystem.get_invoice_payload(user_id, plan)
+    payload = UnifiedPaymentSystem.get_invoice_payload(user_id, plan)
 
     # إنشاء قائمة الأسعار (نجوم تيليجرام يستخدم currency_code كـ 'XTR')
     prices = [LabeledPrice(label=f"خطة {plan_info['name']}", amount=price)]
@@ -163,10 +163,10 @@ async def pre_checkout_callback(update: Update, context: ContextTypes.DEFAULT_TY
     user_id = query.from_user.id
 
     # فك تشفير payload
-    user_from_payload, plan = PaymentSystem.parse_invoice_payload(query.payload)
+    user_from_payload, plan = UnifiedPaymentSystem.parse_invoice_payload(query.payload)
 
     # التحقق من البيانات
-    is_valid, message = PaymentSystem.verify_payment(
+    is_valid, message = UnifiedPaymentSystem.verify_payment(
         query.id,
         user_from_payload,
         plan,
@@ -191,7 +191,7 @@ async def successful_payment_callback(update: Update, context: ContextTypes.DEFA
 
     # فك تشفير payload
     try:
-        user_from_payload, plan = PaymentSystem.parse_invoice_payload(successful_payment.invoice_payload)
+        user_from_payload, plan = UnifiedPaymentSystem.parse_invoice_payload(successful_payment.invoice_payload)
     except (ValueError, TypeError, IndexError) as e:
         logger.warning(f"⚠️ خطأ في معالجة payload: {e}")
         await message.reply_text(

@@ -35,13 +35,16 @@ from handlers_files import (
     edit_file_start, handle_file_edit, replace_file, delete_file, confirm_delete_file
 )
 
-# معالجات متقدمة
+# معالجات متقدمة (موحدة)
 from handlers_advanced import (
     add_bot_start, deploy_zip_start, handle_bot_file, handle_token,
     confirm_delete, delete_bot_action, request_upgrade, select_upgrade,
     approve_upgrade, reject_upgrade, approve_user, reject_user, sys_status,
     admin_panel, admin_users, admin_pending, admin_upgrades, admin_bots,
-    bot_backup, bot_settings, clear_logs, admin_blocked
+    bot_backup, bot_settings, clear_logs, admin_blocked,
+    admin_settings_panel, view_all_settings, admin_moderation_panel,
+    admin_ban_users, admin_moderation_stats, hosting_purchase_menu,
+    donate_stars_handler
 )
 
 logger = setup_logging()

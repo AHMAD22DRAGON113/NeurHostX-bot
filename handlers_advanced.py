@@ -1391,3 +1391,236 @@ async def clear_logs(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
     except Exception as e:
         logger.error(f"خطأ في مسح السجلات: {e}")
         await query.answer("❌ حدث خطأ", show_alert=True)
+
+# ============================================================================
+# معالجات الإعدادات المتقدمة (مدمجة من advanced_handlers.py)
+# ============================================================================
+
+from settings_manager import settings_manager
+from help_manager import help_manager
+from formatters import MessageBuilder, TextFormatter, format_bold, format_code
+
+async def admin_settings_panel(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
+    """لوحة إعدادات للأدمن (تحكم شامل)"""
+    query = update.callback_query
+    await query.answer()
+
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        await query.edit_message_text(
+            "❌ هذه الميزة متاحة للأدمن فقط",
+            parse_mode="HTML"
+        )
+        return
+
+    # بناء الرسالة
+    builder = MessageBuilder()
+    builder.add_header("⚙️ لوحة الإعدادات المتقدمة")
+    builder.add_empty_line()
+
+    builder.add_section(
+        "📊 الإعدادات المتاحة",
+        "يمكنك التحكم بجميع جوانب البوت:"
+    )
+    builder.add_empty_line()
+    builder.add_list([
+        "🔧 إعدادات النظام",
+        "📈 حدود الموارد",
+        "⏱️ إعدادات الوقت",
+        "📁 إعدادات الملفات",
+        "🎮 إعدادات التشغيل",
+        "🔐 إعدادات الأمان",
+        "📢 إعدادات الإشعارات",
+    ])
+
+    keyboard = [
+        [InlineKeyboardButton("📊 عرض جميع الإعدادات", callback_data="admin_settings_view_all")],
+        [InlineKeyboardButton("💾 حفظ وتطبيق", callback_data="admin_settings_save")],
+        [InlineKeyboardButton("🔙 رجوع", callback_data="admin_panel")],
+    ]
+
+    await query.edit_message_text(
+        builder.build(),
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
+
+
+async def view_all_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """عرض جميع الإعدادات الحالية"""
+    query = update.callback_query
+    await query.answer()
+
+    settings = settings_manager.get_all()
+
+    text = "<b>📋 جميع الإعدادات الحالية</b>\n"
+    text += "═" * 40 + "\n\n"
+    text += f"<code>{str(settings)}</code>\n\n"
+    text += "<i>ملاحظة: يمكنك تعديل هذه الإعدادات في ملف settings.json</i>"
+
+    keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="admin_settings_panel")]]
+
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
+
+# ============================================================================
+# معالجات الإدارة المحسنة (مدمجة من enhanced_handlers.py)
+# ============================================================================
+
+async def admin_moderation_panel(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
+    """لوحة الإشراف والإدارة المتقدمة 🛡️"""
+    query = update.callback_query
+    await query.answer()
+    user_id = update.effective_user.id
+
+    # التحقق من أن المستخدم أدمن
+    if user_id != ADMIN_ID:
+        await query.edit_message_text(
+            "⛔ <b>غير مصرح</b>\n"
+            "هذه الميزة متاحة للأدمن فقط",
+            parse_mode="HTML"
+        )
+        return
+
+    # بناء لوحة الإدارة
+    keyboard = [
+        [InlineKeyboardButton("🚫 حظر المستخدمين", callback_data="admin_ban_users")],
+        [InlineKeyboardButton("📊 إحصائيات الإشراف", callback_data="admin_moderation_stats")],
+        [InlineKeyboardButton("🔙 رجوع", callback_data="admin_panel")]
+    ]
+
+    message = (
+        "🛡️ <b>لوحة الإشراف والإدارة</b>\n"
+        f"{'═' * 30}\n\n"
+        "👇 اختر العملية المراد تنفيذها:\n\n"
+        "🚫 <b>الحظر:</b> منع الوصول نهائياً\n"
+        "📊 <b>الإحصائيات:</b> عرض النشاط"
+    )
+
+    await query.edit_message_text(
+        message,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
+
+
+async def admin_ban_users(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
+    """إدارة جرد المستخدمين المحظورين"""
+    query = update.callback_query
+    await query.answer()
+
+    blocked_users = db.get_blocked_users()
+
+    if not blocked_users:
+        keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="admin_moderation_panel")]]
+        await query.edit_message_text(
+            "✅ لا توجد مستخدمون محظورون حالياً",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="HTML"
+        )
+        return
+
+    message = "🚫 <b>المستخدمون المحظورون</b>\n" + "═" * 30 + "\n\n"
+
+    for user in blocked_users[:10]:  # عرض أول 10 فقط
+        user_id = user[0]
+        username = user[1] or "بدون اسم"
+        message += f"👤 {username}\n💳 ID: <code>{user_id}</code>\n\n"
+
+    message += f"\n📊 الإجمالي: {len(blocked_users)}"
+
+    keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="admin_moderation_panel")]]
+    await query.edit_message_text(
+        message,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
+
+
+async def admin_moderation_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
+    """عرض إحصائيات الإشراف"""
+    query = update.callback_query
+    await query.answer()
+    user_id = update.effective_user.id
+
+    blocked_users = db.get_blocked_users()
+    pending_users = db.get_pending_users()
+
+    message = (
+        "📊 <b>إحصائيات الإشراف</b>\n"
+        f"{'═' * 30}\n\n"
+        f"🚫 المحظورون: {len(blocked_users)}\n"
+        f"⏳ طلبات معلقة: {len(pending_users)}\n\n"
+        f"{'─' * 30}\n"
+        "⌚ آخر تحديث: الآن"
+    )
+
+    keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="admin_moderation_panel")]]
+    await query.edit_message_text(
+        message,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
+
+# ============================================================================
+# معالجات الشراء والدفع (مدمجة من enhanced_handlers.py)
+# ============================================================================
+
+async def hosting_purchase_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
+    """قائمة شراء وقت الاستضافة الإضافي 💳"""
+    query = update.callback_query
+    await query.answer()
+
+    bot_id = context.user_data.get('selected_bot_id', 1)
+
+    keyboard = [
+        [InlineKeyboardButton("📅 أسبوع (7 أيام) - 5 ⭐", callback_data=f"buy_hosting_week_{bot_id}")],
+        [InlineKeyboardButton("📆 شهر (30 يوم) - 15 ⭐", callback_data=f"buy_hosting_month_{bot_id}")],
+        [InlineKeyboardButton("💝 تبرع", callback_data="donate_stars")],
+        [InlineKeyboardButton("🔙 رجوع", callback_data=f"manage_{bot_id}")]
+    ]
+
+    message = (
+        "🕥 <b>شراء وقت استضافة إضافي</b>\n"
+        f"{'═' * 30}\n\n"
+        "⭐ اختر الباقة المناسبة:\n\n"
+        "💡 <i>سيتم تحديث الوقت تلقائياً بعد الدفع</i>"
+    )
+
+    await query.edit_message_text(
+        message,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
+
+
+async def donate_stars_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
+    """معالج التبرعات بنجوم تلجرام 💝"""
+    query = update.callback_query
+    await query.answer()
+
+    keyboard = [
+        [InlineKeyboardButton("1 ⭐", callback_data="donate_amount_1")],
+        [InlineKeyboardButton("5 ⭐", callback_data="donate_amount_5")],
+        [InlineKeyboardButton("10 ⭐", callback_data="donate_amount_10")],
+        [InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]
+    ]
+
+    message = (
+        "💝 <b>دعم المشروع بالتبرع</b>\n"
+        f"{'═' * 30}\n\n"
+        "❤️ ساهم في تطوير NeurHostX!\n\n"
+        "كل نجم يساعد في:\n"
+        "✨ تحسين الخدمات\n"
+        "🚀 إضافة ميزات جديدة\n"
+        "🛡️ تحسين الأمان"
+    )
+
+    await query.edit_message_text(
+        message,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
