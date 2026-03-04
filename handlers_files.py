@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import ContextTypes, ConversationHandler
-from config import BOTS_DIR, MAX_FILE_SIZE_MB, MAX_EDIT_FILE_SIZE_MB, CONVERSATION_STATES
+from config import BOTS_DIRECTORY, MAX_FILE_UPLOAD_SIZE_MB, MAX_EDIT_FILE_SIZE_MB, CONVERSATION_STATES
 from helpers import (
     safe_html_escape, get_file_size, get_file_icon, 
     is_safe_path, get_bot_id_from_callback
@@ -50,7 +50,7 @@ async def file_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
             )
             return
         
-        bot_path = Path(BOTS_DIR) / bot[5]
+        bot_path = Path(BOTS_DIRECTORY) / bot[5]
         current_path = (bot_path / sub_path).resolve() if sub_path else bot_path.resolve()
         
         # التحقق الأمني: لا نخرج من مجلد البوت
@@ -187,7 +187,7 @@ async def view_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
             await query.edit_message_text("❌ البوت غير موجود")
             return
         
-        bot_path = Path(BOTS_DIR) / bot[5]
+        bot_path = Path(BOTS_DIRECTORY) / bot[5]
         file_path = bot_path / filename
         
         # التحقق من الأمان
@@ -302,7 +302,7 @@ async def download_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
             await query.answer("❌ البوت غير موجود", show_alert=True)
             return
         
-        bot_path = Path(BOTS_DIR) / bot[5]
+        bot_path = Path(BOTS_DIRECTORY) / bot[5]
         file_path = (bot_path / filename).resolve()
         
         # التحقق من الأمان
@@ -350,7 +350,7 @@ async def download_all(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
             await query.answer("❌ البوت غير موجود", show_alert=True)
             return
         
-        bot_path = Path(BOTS_DIR) / bot[5]
+        bot_path = Path(BOTS_DIRECTORY) / bot[5]
         
         if not bot_path.exists():
             await query.answer("❌ مجلد البوت غير موجود", show_alert=True)
@@ -408,7 +408,7 @@ async def upload_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
             f"📤 <b>رفع ملف جديد</b>\n"
             f"════════════════════════════\n\n"
             f"📎 أرسل الملف الذي تريد رفعه\n"
-            f"📏 الحد الأقصى: {MAX_FILE_SIZE_MB} MB\n\n"
+            f"📏 الحد الأقصى: {MAX_FILE_UPLOAD_SIZE_MB} MB\n\n"
             "❌ للإلغاء أرسل /cancel",
             parse_mode="HTML"
         )
@@ -482,7 +482,7 @@ async def edit_file_start(update: Update, context: ContextTypes.DEFAULT_TYPE, db
             await query.edit_message_text("❌ البوت غير موجود")
             return ConversationHandler.END
         
-        bot_path = Path(BOTS_DIR) / bot[5]
+        bot_path = Path(BOTS_DIRECTORY) / bot[5]
         file_path = bot_path / filename
         
         # التحقق من الأمان
@@ -600,7 +600,7 @@ async def delete_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
             await query.answer("❌ البوت غير موجود", show_alert=True)
             return
         
-        bot_path = Path(BOTS_DIR) / bot[5]
+        bot_path = Path(BOTS_DIRECTORY) / bot[5]
         file_path = bot_path / filename
         
         # التحقق من الأمان
@@ -656,7 +656,7 @@ async def confirm_delete_file(update: Update, context: ContextTypes.DEFAULT_TYPE
             await query.answer("❌ البوت غير موجود", show_alert=True)
             return
         
-        bot_path = Path(BOTS_DIR) / bot[5]
+        bot_path = Path(BOTS_DIRECTORY) / bot[5]
         file_path = bot_path / filename
         
         if file_path.exists():

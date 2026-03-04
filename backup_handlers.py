@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import ContextTypes, ConversationHandler
 
-from config import ADMIN_ID, BOTS_DIR, DB_FILE
+from config import ADMIN_ID, BOTS_DIRECTORY, DATABASE_FILE
 from backup_system import BackupSystem
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ async def backup_download_now(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
 
     try:
-        buf = BackupSystem.create_full_backup(BOTS_DIR, DB_FILE)
+        buf = BackupSystem.create_full_backup(BOTS_DIRECTORY, DATABASE_FILE)
         ts = datetime.now().strftime("%Y%m%d_%H%M")
         filename = f"neurohost_backup_{ts}.zip"
         buf.name = filename
@@ -164,7 +164,7 @@ async def backup_receive_password(update: Update, context: ContextTypes.DEFAULT_
     )
 
     try:
-        buf = BackupSystem.create_full_backup(BOTS_DIR, DB_FILE, password=password)
+        buf = BackupSystem.create_full_backup(BOTS_DIRECTORY, DATABASE_FILE, password=password)
         ts = datetime.now().strftime("%Y%m%d_%H%M")
         filename = f"neurohost_encrypted_{ts}.zip"
         buf.name = filename
@@ -269,7 +269,7 @@ async def backup_restore_execute(update: Update, context: ContextTypes.DEFAULT_T
         parse_mode="HTML"
     )
 
-    ok, result_msg = BackupSystem.restore_backup(zip_data, BOTS_DIR, DB_FILE, password)
+    ok, result_msg = BackupSystem.restore_backup(zip_data, BOTS_DIRECTORY, DATABASE_FILE, password)
 
     await msg.edit_text(
         f"════════════════════════════\n"
@@ -367,7 +367,7 @@ async def backup_send_to_channel(update: Update, context: ContextTypes.DEFAULT_T
         parse_mode="HTML"
     )
 
-    ok = await BackupSystem.send_auto_backup(context.bot, channel_id, BOTS_DIR, DB_FILE)
+    ok = await BackupSystem.send_auto_backup(context.bot, channel_id, BOTS_DIRECTORY, DATABASE_FILE)
 
     keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="backup_panel")]]
     if ok:

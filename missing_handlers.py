@@ -19,7 +19,7 @@ import zipfile
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 
-from config import ADMIN_ID, BOTS_DIR, DB_FILE, PLANS, CONVERSATION_STATES
+from config import ADMIN_ID, BOTS_DIRECTORY, DATABASE_FILE, PLANS, CONVERSATION_STATES
 from database import Database
 from helpers import safe_html_escape, seconds_to_human
 
@@ -93,7 +93,7 @@ async def change_main_file_start(update: Update, context: ContextTypes.DEFAULT_T
         return ConversationHandler.END
 
     # عرض الملفات الموجودة
-    bot_path = Path(BOTS_DIR) / bot[5]
+    bot_path = Path(BOTS_DIRECTORY) / bot[5]
     py_files = []
     if bot_path.exists():
         py_files = [f.name for f in bot_path.iterdir() if f.suffix == '.py' and not f.name.startswith('_')]
@@ -134,7 +134,7 @@ async def set_main_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         return
 
     # تحديث في قاعدة البيانات
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DATABASE_FILE)
     c = conn.cursor()
     c.execute("UPDATE bots SET main_file = ? WHERE id = ?", (filename, bot_id))
     conn.commit()
@@ -167,7 +167,7 @@ async def toggle_auto_recovery(update: Update, context: ContextTypes.DEFAULT_TYP
     current = bot[28] if len(bot) > 28 else 0  # auto_start field
     new_val = 0 if current else 1
 
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DATABASE_FILE)
     c = conn.cursor()
     c.execute("UPDATE bots SET auto_start = ? WHERE id = ?", (new_val, bot_id))
     conn.commit()
@@ -242,7 +242,7 @@ async def set_priority_execute(update: Update, context: ContextTypes.DEFAULT_TYP
     priority = int(parts[2])
     bot_id = int(parts[3])
 
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DATABASE_FILE)
     c = conn.cursor()
     c.execute("UPDATE bots SET priority = ? WHERE id = ?", (priority, bot_id))
     conn.commit()
@@ -286,7 +286,7 @@ async def edit_description_execute(update: Update, context: ContextTypes.DEFAULT
 
     description = "" if text == "." else text[:200]
 
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DATABASE_FILE)
     c = conn.cursor()
     c.execute("UPDATE bots SET description = ? WHERE id = ?", (description, bot_id))
     conn.commit()
@@ -459,7 +459,7 @@ async def mute_duration_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
     # تسجيل الكتم في قاعدة البيانات
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DATABASE_FILE)
         c = conn.cursor()
         c.execute("UPDATE users SET status = 'muted' WHERE user_id = ?", (target_user_id,))
         conn.commit()
@@ -498,7 +498,7 @@ async def promote_role_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DATABASE_FILE)
         c = conn.cursor()
         c.execute("UPDATE users SET role = ? WHERE user_id = ?", (role, target_user_id))
         conn.commit()
@@ -530,16 +530,16 @@ async def admin_settings_system(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     from config import (
-        MAX_CONCURRENT_BOTS, MONITOR_CHECK_INTERVAL,
-        RESTART_COOLDOWN, PROCESS_TIMEOUT
+        MAX_CONCURRENT_BOTS, MONITOR_CHECK_INTERVAL_SECONDS,
+        PROCESS_RESTART_COOLDOWN_SECONDS, PROCESS_TIMEOUT_SECONDS
     )
 
     await query.edit_message_text(
         f"{DIVIDER}\n🔧 <b>إعدادات النظام</b>\n{DIVIDER}\n\n"
         f"🤖 الحد الأقصى للبوتات المتزامنة: <b>{MAX_CONCURRENT_BOTS}</b>\n"
-        f"⏱️ فترة المراقبة: <b>{MONITOR_CHECK_INTERVAL} ث</b>\n"
-        f"🔄 فترة الانتظار بين الإعادة: <b>{RESTART_COOLDOWN} ث</b>\n"
-        f"⌛ مهلة العملية: <b>{PROCESS_TIMEOUT} ث</b>\n\n"
+        f"⏱️ فترة المراقبة: <b>{MONITOR_CHECK_INTERVAL_SECONDS} ث</b>\n"
+        f"🔄 فترة الانتظار بين الإعادة: <b>{PROCESS_RESTART_COOLDOWN_SECONDS} ث</b>\n"
+        f"⌛ مهلة العملية: <b>{PROCESS_TIMEOUT_SECONDS} ث</b>\n\n"
         f"<i>للتعديل: افتح ملف config.py</i>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([
@@ -580,13 +580,13 @@ async def admin_settings_time(update: Update, context: ContextTypes.DEFAULT_TYPE
     if update.effective_user.id != ADMIN_ID:
         return
 
-    from config import RECOVERY_TIME, RESTART_TIME_COST, WARNING_COOLDOWN
+    from config import DAILY_RECOVERY_TIME_SECONDS, RESTART_TIME_COST_SECONDS, WARNING_COOLDOWN_SECONDS
 
     await query.edit_message_text(
         f"{DIVIDER}\n⏱️ <b>إعدادات الوقت</b>\n{DIVIDER}\n\n"
-        f"🔄 وقت الاسترجاع اليومي: <b>{seconds_to_human(RECOVERY_TIME)}</b>\n"
-        f"💰 تكلفة إعادة التشغيل: <b>{seconds_to_human(RESTART_TIME_COST)}</b>\n"
-        f"⚠️ فترة بين التحذيرات: <b>{seconds_to_human(WARNING_COOLDOWN)}</b>\n\n"
+        f"🔄 وقت الاسترجاع اليومي: <b>{seconds_to_human(DAILY_RECOVERY_TIME_SECONDS)}</b>\n"
+        f"💰 تكلفة إعادة التشغيل: <b>{seconds_to_human(RESTART_TIME_COST_SECONDS)}</b>\n"
+        f"⚠️ فترة بين التحذيرات: <b>{seconds_to_human(WARNING_COOLDOWN_SECONDS)}</b>\n\n"
         f"<i>للتعديل: افتح ملف config.py</i>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([
@@ -602,11 +602,11 @@ async def admin_settings_files(update: Update, context: ContextTypes.DEFAULT_TYP
     if update.effective_user.id != ADMIN_ID:
         return
 
-    from config import MAX_FILE_SIZE_MB, MAX_EDIT_FILE_SIZE_MB, MAX_ZIP_SIZE_MB
+    from config import MAX_FILE_UPLOAD_SIZE_MB, MAX_EDIT_FILE_SIZE_MB, MAX_ZIP_SIZE_MB
 
     await query.edit_message_text(
         f"{DIVIDER}\n📁 <b>إعدادات الملفات</b>\n{DIVIDER}\n\n"
-        f"📤 الحد الأقصى لرفع الملف: <b>{MAX_FILE_SIZE_MB} MB</b>\n"
+        f"📤 الحد الأقصى لرفع الملف: <b>{MAX_FILE_UPLOAD_SIZE_MB} MB</b>\n"
         f"✏️ الحد الأقصى لتعديل الملف: <b>{MAX_EDIT_FILE_SIZE_MB} MB</b>\n"
         f"📦 الحد الأقصى لملف ZIP: <b>{MAX_ZIP_SIZE_MB} MB</b>\n\n"
         f"<i>للتعديل: افتح ملف config.py</i>",
@@ -678,7 +678,7 @@ async def create_bot_backup(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     from telegram import InputFile
     from datetime import datetime
 
-    bot_path = Path(BOTS_DIR) / bot[5]
+    bot_path = Path(BOTS_DIRECTORY) / bot[5]
     if not bot_path.exists():
         await query.answer("❌ مجلد البوت غير موجود", show_alert=True)
         return

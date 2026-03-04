@@ -14,8 +14,8 @@ from pathlib import Path
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import ContextTypes, ConversationHandler
 from config import (
-    BOTS_DIR, MAX_FILE_SIZE_MB, PLANS, ADMIN_ID, 
-    DEVELOPER_USERNAME, DB_FILE, CONVERSATION_STATES
+    BOTS_DIRECTORY, MAX_FILE_UPLOAD_SIZE_MB, PLANS, ADMIN_ID, 
+    DEVELOPER_USERNAME, DATABASE_FILE, CONVERSATION_STATES
 )
 from helpers import (
     safe_html_escape, get_file_size, seconds_to_human, 
@@ -63,7 +63,7 @@ async def add_bot_start(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         "💡 <b>ملاحظات:</b>\n"
         "• سيتم اكتشاف التوكن تلقائياً إن وجد\n"
         "• يمكنك إرسال ملف ZIP للمشاريع الكبيرة\n"
-        f"• الحد الأقصى للحجم: {MAX_FILE_SIZE_MB}MB\n\n"
+        f"• الحد الأقصى للحجم: {MAX_FILE_UPLOAD_SIZE_MB}MB\n\n"
         "❌ للإلغاء أرسل /cancel",
         parse_mode="HTML"
     )
@@ -102,7 +102,7 @@ async def deploy_zip_start(update: Update, context: ContextTypes.DEFAULT_TYPE, d
         "💡 <b>المتطلبات:</b>\n"
         "• يجب أن يحتوي على ملف <code>main.py</code> أو <code>bot.py</code>\n"
         "• ضع <code>requirements.txt</code> لتثبيت المتطلبات تلقائياً\n"
-        f"• الحد الأقصى للحجم: {MAX_FILE_SIZE_MB}MB\n\n"
+        f"• الحد الأقصى للحجم: {MAX_FILE_UPLOAD_SIZE_MB}MB\n\n"
         "❌ للإلغاء أرسل /cancel",
         parse_mode="HTML"
     )
@@ -123,10 +123,10 @@ async def handle_bot_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db
     
     try:
         # التحقق من الحجم
-        if doc.file_size and doc.file_size > MAX_FILE_SIZE_MB * 1024 * 1024:
+        if doc.file_size and doc.file_size > MAX_FILE_UPLOAD_SIZE_MB * 1024 * 1024:
             await update.message.reply_text(
                 f"❌ <b>الملف كبير جداً</b>\n\n"
-                f"الحد الأقصى: {MAX_FILE_SIZE_MB}MB\n"
+                f"الحد الأقصى: {MAX_FILE_UPLOAD_SIZE_MB}MB\n"
                 f"حجم الملف: {doc.file_size / (1024*1024):.1f}MB",
                 parse_mode="HTML"
             )
@@ -166,7 +166,7 @@ async def handle_bot_py(update: Update, context: ContextTypes.DEFAULT_TYPE, doc,
     try:
         user_id = update.effective_user.id
         folder = generate_unique_folder("bot", user_id)
-        bot_path = Path(BOTS_DIR) / folder
+        bot_path = Path(BOTS_DIRECTORY) / folder
         bot_path.mkdir(parents=True, exist_ok=True)
         
         # تحميل الملف
@@ -244,7 +244,7 @@ async def handle_bot_zip(update: Update, context: ContextTypes.DEFAULT_TYPE, db,
     doc = update.message.document
     user_id = update.effective_user.id
     folder = generate_unique_folder("zip", user_id)
-    dest_path = Path(BOTS_DIR) / folder
+    dest_path = Path(BOTS_DIRECTORY) / folder
     
     msg = await update.message.reply_text(
         "⏳ <b>جاري معالجة الملف...</b>\n\n"
@@ -462,7 +462,7 @@ async def handle_bot_file_upload(update: Update, context: ContextTypes.DEFAULT_T
             context.user_data.pop('upload_bot_id', None)
             return ConversationHandler.END
         
-        bot_path = Path(BOTS_DIR) / bot[5]
+        bot_path = Path(BOTS_DIRECTORY) / bot[5]
         file_path = bot_path / doc.file_name
         
         # تحميل الملف
@@ -495,7 +495,7 @@ async def handle_bot_file_replace(update: Update, context: ContextTypes.DEFAULT_
             context.user_data.pop('replace_bot_id', None)
             return ConversationHandler.END
         
-        bot_path = Path(BOTS_DIR) / bot[5]
+        bot_path = Path(BOTS_DIRECTORY) / bot[5]
         old_main_file = bot[6]
         old_file_path = bot_path / old_main_file
         new_file_path = bot_path / doc.file_name
@@ -513,7 +513,7 @@ async def handle_bot_file_replace(update: Update, context: ContextTypes.DEFAULT_
         db.update_bot_status(bot_id, "stopped", None)
         
         import sqlite3
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DATABASE_FILE)
         c = conn.cursor()
         c.execute("UPDATE bots SET main_file = ? WHERE id = ?", (doc.file_name, bot_id))
         conn.commit()
@@ -614,7 +614,7 @@ async def delete_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         pm.stop_bot(bot_id)
         
         # حذف ملفات البوت
-        bot_path = Path(BOTS_DIR) / bot[5]
+        bot_path = Path(BOTS_DIRECTORY) / bot[5]
         try:
             if bot_path.exists():
                 shutil.rmtree(bot_path)
@@ -1343,7 +1343,7 @@ async def bot_backup(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
             await query.answer("❌ البوت غير موجود", show_alert=True)
             return
         
-        bot_path = Path(BOTS_DIR) / bot[5]
+        bot_path = Path(BOTS_DIRECTORY) / bot[5]
         
         if not bot_path.exists():
             await query.answer("❌ مجلد البوت غير موجود", show_alert=True)
@@ -1789,7 +1789,7 @@ async def restore_from_backup(update: Update, context: ContextTypes.DEFAULT_TYPE
         bot = db.get_bot(bot_id)
         if not bot:
             return
-        bot_path = Path(BOTS_DIR) / bot[5]
+        bot_path = Path(BOTS_DIRECTORY) / bot[5]
 
         with zipfile.ZipFile(str(file_path), 'r') as zf:
             zf.extractall(str(bot_path.parent))

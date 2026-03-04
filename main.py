@@ -12,7 +12,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from app_setup import setup_logging, check_requirements, create_app, print_startup_banner
-from config import ADMIN_ID, CONVERSATION_STATES, DB_FILE
+from config import ADMIN_ID, CONVERSATION_STATES, DATABASE_FILE
 from database import Database
 from process_manager import ProcessManager
 
@@ -555,7 +555,7 @@ def main():
         print_startup_banner()
 
         # تهيئة قاعدة البيانات
-        db = Database(DB_FILE)
+        db = Database(DATABASE_FILE)
         logger.info("✅ قاعدة البيانات تعمل")
 
         # تهيئة مدير العمليات

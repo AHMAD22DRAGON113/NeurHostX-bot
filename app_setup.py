@@ -10,8 +10,8 @@ from logging.handlers import RotatingFileHandler
 
 from telegram.ext import ApplicationBuilder
 from config import (
-    TOKEN, ADMIN_ID, DB_FILE, BOTS_DIR, LOG_DIR,
-    ERROR_LOG_FILE, BACKUP_DIR, VERSION, VERSION_NAME,
+    TELEGRAM_BOT_TOKEN, ADMIN_ID, DATABASE_FILE, BOTS_DIRECTORY, LOGS_DIRECTORY,
+    ERROR_LOG_FILE, BACKUPS_DIRECTORY, VERSION, VERSION_NAME,
     validate_credentials
 )
 from settings_manager import settings_manager
@@ -19,9 +19,9 @@ from settings_manager import settings_manager
 def setup_logging():
     """إعداد نظام التسجيل المحسن"""
     # إنشاء المجلدات الضرورية
-    Path(LOG_DIR).mkdir(exist_ok=True)
-    Path(BOTS_DIR).mkdir(exist_ok=True)
-    Path(BACKUP_DIR).mkdir(exist_ok=True)
+    Path(LOGS_DIRECTORY).mkdir(exist_ok=True)
+    Path(BOTS_DIRECTORY).mkdir(exist_ok=True)
+    Path(BACKUPS_DIRECTORY).mkdir(exist_ok=True)
     
     # إعداد التسجيل الأساسي
     logging.basicConfig(
@@ -76,9 +76,9 @@ def check_requirements():
         print("سيتم استخدام الإعدادات الافتراضية")
 
     # إنشاء المجلدات
-    Path(BOTS_DIR).mkdir(exist_ok=True)
-    Path(LOG_DIR).mkdir(exist_ok=True)
-    Path(BACKUP_DIR).mkdir(exist_ok=True)
+    Path(BOTS_DIRECTORY).mkdir(exist_ok=True)
+    Path(LOGS_DIRECTORY).mkdir(exist_ok=True)
+    Path(BACKUPS_DIRECTORY).mkdir(exist_ok=True)
 
     # إنشاء مجلد مؤقت للتحميلات
     Path("temp").mkdir(exist_ok=True)
@@ -87,7 +87,7 @@ def check_requirements():
 def create_app():
     """إنشاء تطبيق البوت"""
     try:
-        app = ApplicationBuilder().token(TOKEN).build()
+        app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
         return app
     except Exception as e:
         logger = logging.getLogger(__name__)

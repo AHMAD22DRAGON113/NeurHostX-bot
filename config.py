@@ -87,7 +87,7 @@ ACTIVITY_LOG_FILE = "activity.log"
 
 # حدود حجم الملفات (بالميجابايت)
 MAX_FILE_UPLOAD_SIZE_MB = 50               # أقصى حجم للملف المرفوع
-MAX_FILE_EDIT_SIZE_MB = 5                  # أقصى حجم للملف القابل للتعديل
+MAX_EDIT_FILE_SIZE_MB = 5                  # أقصى حجم للملف القابل للتعديل
 MAX_ZIP_SIZE_MB = 100                      # أقصى حجم لملف ZIP
 
 

@@ -167,8 +167,8 @@ async def health_check(update: Update, context: ContextTypes.DEFAULT_TYPE, db: D
             db_ok = False
 
         # فحص مجلد البوتات
-        from config import BOTS_DIR
-        bots_dir_ok = os.path.exists(BOTS_DIR)
+        from config import BOTS_DIRECTORY
+        bots_dir_ok = os.path.exists(BOTS_DIRECTORY)
 
         cpu_bar = render_bar(cpu)
         mem_bar = render_bar(mem.percent)

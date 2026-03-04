@@ -6,14 +6,14 @@ import sqlite3
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from config import DB_FILE, PLANS
+from config import DATABASE_FILE, PLANS
 
 logger = logging.getLogger(__name__)
 
 class Database:
     """مدير قاعدة البيانات المحسن"""
     
-    def __init__(self, db_file=DB_FILE):
+    def __init__(self, db_file=DATABASE_FILE):
         self.db_file = db_file
         self.init_db()
         self._migrate_db()

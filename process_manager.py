@@ -10,8 +10,8 @@ import asyncio
 import logging
 from pathlib import Path
 from config import (
-    BOTS_DIR, RESTART_COOLDOWN, RESTART_TIME_COST, 
-    MAX_RESTARTS, MONITOR_CHECK_INTERVAL, WARNING_COOLDOWN
+    BOTS_DIRECTORY, PROCESS_RESTART_COOLDOWN_SECONDS, RESTART_TIME_COST_SECONDS, 
+    MAX_DAILY_RESTARTS, MONITOR_CHECK_INTERVAL_SECONDS, WARNING_COOLDOWN_SECONDS
 )
 from helpers import seconds_to_human, get_current_time, safe_html_escape
 
@@ -29,9 +29,9 @@ class ProcessManager:
         self.db = db
         self.processes = {}
         self.monitor_tasks = {}
-        self.restart_cooldown = RESTART_COOLDOWN
-        self.restart_time_cost = RESTART_TIME_COST
-        self.max_restarts = MAX_RESTARTS
+        self.restart_cooldown = PROCESS_RESTART_COOLDOWN_SECONDS
+        self.restart_time_cost = RESTART_TIME_COST_SECONDS
+        self.max_restarts = MAX_DAILY_RESTARTS
 
     async def start_bot(self, bot_id, application):
         """بدء البوت مع معالجة أخطاء محسّنة"""
@@ -61,7 +61,7 @@ class ProcessManager:
             return False, "⚠️ انتهت فترة الاستضافة. أضف وقتاً جديداً."
         
         # التحقق من مسار البوت
-        bot_path = Path(BOTS_DIR) / folder
+        bot_path = Path(BOTS_DIRECTORY) / folder
         if not bot_path.exists():
             self.db.add_event_log(bot_id, "ERROR", "❌ مجلد البوت غير موجود")
             return False, "❌ مجلد البوت غير موجود"
@@ -207,7 +207,7 @@ class ProcessManager:
         
         while bot_id in self.processes:
             try:
-                await asyncio.sleep(MONITOR_CHECK_INTERVAL)
+                await asyncio.sleep(MONITOR_CHECK_INTERVAL_SECONDS)
                 
                 bot = self.db.get_bot(bot_id)
                 if not bot:
@@ -254,7 +254,7 @@ class ProcessManager:
                 
                 # تحذير الوقت المنخفض
                 current_time = time.time()
-                if remaining > 0 and remaining <= 600 and (current_time - last_warning_time) > WARNING_COOLDOWN:
+                if remaining > 0 and remaining <= 600 and (current_time - last_warning_time) > WARNING_COOLDOWN_SECONDS:
                     try:
                         await application.bot.send_message(
                             chat_id=user_id,

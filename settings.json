@@ -1,0 +1,23 @@
+{
+  "notifications_enabled": true,
+  "default_plan": "free",
+  "max_bots_per_user": 2,
+  "require_approval": false,
+  "enable_payments": true,
+  "backup_channel_id": null,
+  "support_channel_id": null,
+  "announcements_channel_id": null,
+  "auto_backup_enabled": false,
+  "auto_backup_interval_hours": 24,
+  "logs_retention_days": 30,
+  "update_check_enabled": true,
+  "security_level": "normal",
+  "maintenance_mode": false,
+  "maintenance_message": "البوت تحت الصيانة حالياً",
+  "bot_language": "ar",
+  "timezone": "Asia/Riyadh",
+  "version_check_interval_hours": 6,
+  "api_rate_limit": 30,
+  "database_backup_enabled": true,
+  "debug_mode": false
+}
