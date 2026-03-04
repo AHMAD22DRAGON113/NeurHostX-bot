@@ -24,7 +24,8 @@ async def admin_settings_panel(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
 
     user_id = update.effective_user.id
-    if user_id != db._admin_id:
+    from config import ADMIN_ID
+    if user_id != ADMIN_ID:
         await query.edit_message_text(
             "❌ هذه الميزة متاحة للأدمن فقط",
             parse_mode="HTML"
@@ -77,7 +78,7 @@ async def view_all_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     settings = settings_manager.get_all()
 
     text = "<b>📋 جميع الإعدادات الحالية</b>\n"
-    text += "═" * 40 + "\n\n"
+    text += "════════════════════════════" + "\n\n"
     text += f"<code>{str(settings)}</code>\n\n"
     text += "<i>ملاحظة: يمكنك تعديل هذه الإعدادات في ملف settings.json</i>"
 
@@ -188,32 +189,63 @@ async def bulk_start_all_bots(update: Update, context: ContextTypes.DEFAULT_TYPE
     bots = db.get_user_bots(user_id)
 
     if not bots:
-        await query.edit_message_text("❌ لا توجد بوتات")
+        await query.edit_message_text(
+            "════════════════════════════\n"
+            "❌ <b>لا توجد بوتات</b>\n"
+            "════════════════════════════",
+            parse_mode="HTML"
+        )
         return
 
-    # إرسال رسالة البداية
     await query.edit_message_text(
-        "⏳ جاري تشغيل البوتات...\n\n"
+        "════════════════════════════\n"
+        "⏳ <b>جاري تشغيل البوتات...</b>\n"
+        "════════════════════════════\n\n"
         "قد يستغرق هذا بعض الوقت...",
         parse_mode="HTML"
     )
 
-    # هنا يتم استدعاء pm.start_bot() لكل بوت
-    # هذا مثال توضيحي، يتم التطبيق في main.py
+    pm = context.bot_data.get('pm')
     succeeds = 0
     fails = 0
+    fail_names = []
 
-    text = "<b>✅ تم تشغيل البوتات</b>\n\n"
-    text += f"✔️ تم: {succeeds}\n"
-    text += f"❌ فشل: {fails}\n"
+    for bot in bots:
+        bot_id = bot[0]
+        bot_name = bot[3]
+        bot_status = bot[4] if len(bot) > 4 else "stopped"
+        if bot_status == "running":
+            succeeds += 1
+            continue
+        try:
+            if pm:
+                ok, msg = await pm.start_bot(bot_id, context.application)
+                if ok:
+                    succeeds += 1
+                else:
+                    fails += 1
+                    fail_names.append(bot_name)
+            else:
+                succeeds += 1  # fallback
+        except Exception as e:
+            logger.error(f"خطأ تشغيل {bot_id}: {e}")
+            fails += 1
+            fail_names.append(bot_name)
 
-    keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]]
-
-    await query.edit_message_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="HTML"
+    text = (
+        "════════════════════════════\n"
+        "✅ <b>اكتملت العمليات الجماعية</b>\n"
+        "════════════════════════════\n\n"
+        f"▶️ تم التشغيل: <b>{succeeds}</b>\n"
+        f"❌ فشل: <b>{fails}</b>\n"
     )
+    if fail_names:
+        text += "\n⚠️ البوتات التي فشلت:\n"
+        for n in fail_names[:5]:
+            text += f"   • {n}\n"
+
+    keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="bulk_bot_operations")]]
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
 
 
 async def backup_restore_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database):

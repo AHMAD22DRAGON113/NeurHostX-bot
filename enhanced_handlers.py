@@ -54,7 +54,7 @@ async def admin_moderation_panel(update: Update, context: ContextTypes.DEFAULT_T
 
     message = (
         "🛡️ <b>لوحة الإشراف والإدارة</b>\n"
-        f"{'═' * 30}\n\n"
+        f"════════════════════════════\n\n"
         "👇 اختر العملية المراد تنفيذها:\n\n"
         "🚫 <b>الحظر:</b> منع الوصول نهائياً\n"
         "🔇 <b>الكتم:</b> منع التفاعل مؤقتاً\n"
@@ -85,7 +85,7 @@ async def admin_ban_users(update: Update, context: ContextTypes.DEFAULT_TYPE, db
         )
         return
 
-    message = "🚫 <b>المستخدمون المحظورون</b>\n" + "═" * 30 + "\n\n"
+    message = "🚫 <b>المستخدمون المحظورون</b>\n" + "════════════════════════════" + "\n\n"
 
     for user in blocked_users[:10]:  # عرض أول 10 فقط
         user_id = user[0]
@@ -103,66 +103,86 @@ async def admin_ban_users(update: Update, context: ContextTypes.DEFAULT_TYPE, db
 
 
 async def admin_mute_users(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
-    """
-    معالج كتم المستخدمين
-    """
+    """معالج كتم المستخدمين"""
     query = update.callback_query
     await query.answer()
 
-    # بناء خيارات الكتم
-    keyboard = [
-        [InlineKeyboardButton("⏱️ 1 ساعة", callback_data="mute_duration_1h")],
-        [InlineKeyboardButton("🕐 6 ساعات", callback_data="mute_duration_6h")],
-        [InlineKeyboardButton("📅 يوم واحد", callback_data="mute_duration_1d")],
-        [InlineKeyboardButton("🔒 دائم", callback_data="mute_duration_permanent")],
-        [InlineKeyboardButton("🔙 رجوع", callback_data="admin_moderation_panel")]
-    ]
+    # جلب قائمة المستخدمين النشطين
+    all_users = db.get_all_users()
+    approved = [u for u in all_users if u[4] == 'approved']
 
-    message = (
-        "🔇 <b>كتم المستخدم</b>\n"
-        f"{'═' * 30}\n\n"
-        "⏰ اختر مدة الكتم:\n\n"
-        "💡 سيتلقى المستخدم إشعاراً بالكتم"
+    if not approved:
+        await query.edit_message_text(
+            f"════════════════════════════\n"
+            f"🔇 <b>كتم المستخدمين</b>\n"
+            f"════════════════════════════\n\n"
+            f"❌ لا يوجد مستخدمون نشطون",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 رجوع", callback_data="admin_moderation_panel")]
+            ])
+        )
+        return
+
+    text = (
+        f"════════════════════════════\n"
+        f"🔇 <b>كتم المستخدم</b>\n"
+        f"════════════════════════════\n\n"
+        f"اختر المستخدم للكتم:\n"
     )
+    keyboard = []
+    for user in approved[:8]:
+        uid = user[0]
+        uname = user[1] or f"ID:{uid}"
+        keyboard.append([InlineKeyboardButton(
+            f"👤 @{uname}",
+            callback_data=f"mute_select_{uid}"
+        )])
+    keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="admin_moderation_panel")])
 
-    await query.edit_message_text(
-        message,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="HTML"
-    )
-
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
     context.user_data['action'] = 'mute'
 
 
 async def admin_promote_users(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
-    """
-    معالج ترقية المستخدمين
-    """
+    """معالج ترقية المستخدمين"""
     query = update.callback_query
     await query.answer()
 
-    keyboard = [
-        [InlineKeyboardButton("🛡️ مشرف", callback_data="promote_role_moderator")],
-        [InlineKeyboardButton("⭐ مميز", callback_data="promote_role_premium")],
-        [InlineKeyboardButton("🔑 أدمن", callback_data="promote_role_admin")],
-        [InlineKeyboardButton("🔙 رجوع", callback_data="admin_moderation_panel")]
-    ]
+    all_users = db.get_all_users()
+    approved = [u for u in all_users if u[4] == 'approved']
 
-    message = (
-        "⬆️ <b>ترقية المستخدم</b>\n"
-        f"{'═' * 30}\n\n"
-        "🎯 اختر الرتبة الجديدة:\n\n"
-        "🛡️ <b>مشرف:</b> صلاحيات إشراف\n"
-        "⭐ <b>مميز:</b> مميزات إضافية\n"
-        "🔑 <b>أدمن:</b> صلاحيات كاملة"
+    if not approved:
+        await query.edit_message_text(
+            f"════════════════════════════\n"
+            f"⬆️ <b>ترقية المستخدم</b>\n"
+            f"════════════════════════════\n\n"
+            f"❌ لا يوجد مستخدمون نشطون",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 رجوع", callback_data="admin_moderation_panel")]
+            ])
+        )
+        return
+
+    text = (
+        f"════════════════════════════\n"
+        f"⬆️ <b>ترقية المستخدم</b>\n"
+        f"════════════════════════════\n\n"
+        f"اختر المستخدم للترقية:\n"
     )
+    keyboard = []
+    for user in approved[:8]:
+        uid = user[0]
+        uname = user[1] or f"ID:{uid}"
+        role = user[3] or 'user'
+        keyboard.append([InlineKeyboardButton(
+            f"👤 @{uname} ({role})",
+            callback_data=f"promote_select_{uid}"
+        )])
+    keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="admin_moderation_panel")])
 
-    await query.edit_message_text(
-        message,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="HTML"
-    )
-
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
     context.user_data['action'] = 'promote'
 
 
@@ -177,11 +197,11 @@ async def admin_moderation_stats(update: Update, context: ContextTypes.DEFAULT_T
 
     message = (
         "📊 <b>إحصائيات الإشراف</b>\n"
-        f"{'═' * 30}\n\n"
+        f"════════════════════════════\n\n"
         f"🚫 المحظورون: {len(blocked)}\n"
         f"🔇 المكتومون: {stats.get('total_muted', 0)}\n"
         f"📝 الإجراءات اليوم: {stats.get('actions_today', 0)}\n\n"
-        f"{'─' * 30}\n"
+        f"────────────────────────────\n"
         "⌚ آخر تحديث: الآن"
     )
 
@@ -231,7 +251,7 @@ async def hosting_purchase_menu(update: Update, context: ContextTypes.DEFAULT_TY
 
     message = (
         "🕥 <b>شراء وقت استضافة إضافي</b>\n"
-        f"{'═' * 30}\n\n"
+        f"════════════════════════════\n\n"
         "⭐ اختر الباقة المناسبة:\n\n"
         "💡 <i>سيتم تحديث الوقت تلقائياً بعد الدفع</i>"
     )
@@ -261,7 +281,7 @@ async def donate_stars_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     message = (
         "💝 <b>دعم المشروع بالتبرع</b>\n"
-        f"{'═' * 30}\n\n"
+        f"════════════════════════════\n\n"
         "❤️ ساهم في تطوير NeurHostX!\n\n"
         "كل نجم يساعد في:\n"
         "✨ تحسين الخدمات\n"
@@ -328,7 +348,7 @@ async def notification_categories(update: Update, context: ContextTypes.DEFAULT_
 
     message = (
         "📂 <b>فئات الإشعارات</b>\n"
-        f"{'═' * 30}\n\n"
+        f"════════════════════════════\n\n"
         "اختر فئة لعرض أمثلة:\n\n"
         "🚀 <b>التفاعل:</b> رسائل لجعلك نشطاً\n"
         "🎁 <b>عروض:</b> خصومات وعروض خاصة\n"
@@ -378,3 +398,168 @@ async def check_user_status(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         'allowed': True,
         'reason': None
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# معالجات مبلغ التبرع - إرسال فاتورة فعلية
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def donate_amount_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
+    """معالج اختيار مبلغ التبرع وإرسال الفاتورة"""
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data  # donate_amount_1 / donate_amount_5 etc
+    try:
+        amount = int(data.replace("donate_amount_", ""))
+    except Exception:
+        await query.answer("❌ مبلغ غير صحيح", show_alert=True)
+        return
+
+    from telegram import LabeledPrice, InlineKeyboardButton, InlineKeyboardMarkup
+    stars_map = {1: "⭐", 5: "⭐⭐⭐⭐⭐", 10: "✨", 25: "💎"}
+    star_icon = stars_map.get(amount, "⭐")
+
+    prices = [LabeledPrice(label=f"دعم NeurHostX {star_icon}", amount=amount)]
+
+    try:
+        await query.message.reply_text(
+            f"════════════════════════════\n"
+            f"💝 <b>شكراً على دعمك!</b>\n"
+            f"════════════════════════════\n\n"
+            f"⭐ المبلغ: <b>{amount} نجمة</b>\n\n"
+            f"💡 سيتم فتح نافذة الدفع...",
+            parse_mode="HTML"
+        )
+        await context.bot.send_invoice(
+            chat_id=query.message.chat_id,
+            title=f"💝 دعم NeurHostX",
+            description=f"تبرع بـ {amount} نجمة لدعم تطوير المشروع {star_icon}",
+            payload=f"donate_{query.from_user.id}_{amount}",
+            provider_token="",
+            currency="XTR",
+            prices=prices,
+        )
+    except Exception as e:
+        logger.error(f"خطأ في إرسال فاتورة التبرع: {e}")
+        keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="donate_stars")]]
+        await query.edit_message_text(
+            f"════════════════════════════\n"
+            f"════════════════════════════\n"
+        f"❌ <b>خطأ في إرسال الفاتورة</b>\n"
+        f"════════════════════════════\n\n"
+            f"حاول مرة أخرى أو تواصل مع الدعم.",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="HTML"
+        )
+
+
+async def donate_custom_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
+    """معالج تحديد مبلغ مخصص"""
+    query = update.callback_query
+    await query.answer()
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    keyboard = [
+        [
+            InlineKeyboardButton("50 ⭐", callback_data="donate_amount_50"),
+            InlineKeyboardButton("100 ⭐", callback_data="donate_amount_100"),
+        ],
+        [
+            InlineKeyboardButton("250 ⭐", callback_data="donate_amount_250"),
+            InlineKeyboardButton("500 ⭐", callback_data="donate_amount_500"),
+        ],
+        [InlineKeyboardButton("🔙 رجوع", callback_data="donate_stars")],
+    ]
+    await query.edit_message_text(
+        f"════════════════════════════\n"
+        f"════════════════════════════\n"
+        f"💎 <b>تبرع بمبلغ أكبر</b>\n"
+        f"════════════════════════════\n\n"
+        f"اختر المبلغ المناسب:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# معالج شراء وقت الاستضافة - إرسال فاتورة فعلية
+# ═══════════════════════════════════════════════════════════════════════════
+
+HOSTING_PACKAGES = {
+    "week":    {"days": 7,   "stars": 5,   "label": "أسبوع (7 أيام)"},
+    "month":   {"days": 30,  "stars": 15,  "label": "شهر (30 يوم)"},
+    "3months": {"days": 90,  "stars": 40,  "label": "3 أشهر"},
+    "year":    {"days": 365, "stars": 120, "label": "سنة كاملة"},
+}
+
+
+async def buy_hosting_time(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
+    """
+    معالج شراء وقت الاستضافة - يرسل فاتورة نجوم تيليجرام حقيقية
+    callback pattern: buy_hosting_{period}_{bot_id}
+    """
+    query = update.callback_query
+    await query.answer()
+    from telegram import LabeledPrice, InlineKeyboardButton, InlineKeyboardMarkup
+
+    try:
+        # parse: buy_hosting_week_5 or buy_hosting_3months_5
+        data = query.data  # buy_hosting_year_3
+        # strip prefix
+        rest = data[len("buy_hosting_"):]  # year_3
+        # split from right to get bot_id
+        parts = rest.rsplit("_", 1)
+        if len(parts) != 2:
+            await query.answer("❌ خطأ في البيانات", show_alert=True)
+            return
+
+        period, bot_id_str = parts[0], parts[1]
+        bot_id = int(bot_id_str)
+
+        pkg = HOSTING_PACKAGES.get(period)
+        if not pkg:
+            await query.answer("❌ الباقة غير صحيحة", show_alert=True)
+            return
+
+        bot = db.get_bot(bot_id)
+        if not bot:
+            await query.answer("❌ البوت غير موجود", show_alert=True)
+            return
+
+        # ترميز الـ payload
+        payload = f"hosting_{update.effective_user.id}_{bot_id}_{period}"
+        prices = [LabeledPrice(label=f"⭐ استضافة {pkg['label']}", amount=pkg["stars"])]
+
+        await query.message.reply_text(
+            f"════════════════════════════\n"
+            f"🕥 <b>شراء وقت استضافة</b>\n"
+            f"════════════════════════════\n\n"
+            f"🤖 البوت: <b>{bot[3]}</b>\n"
+            f"📦 الباقة: <b>{pkg['label']}</b>\n"
+            f"⭐ السعر: <b>{pkg['stars']} نجمة</b>\n\n"
+            f"💡 جاري فتح نافذة الدفع...",
+            parse_mode="HTML"
+        )
+
+        await context.bot.send_invoice(
+            chat_id=query.message.chat_id,
+            title=f"⭐ استضافة {pkg['label']}",
+            description=f"إضافة {pkg['days']} يوم لبوت {bot[3]}",
+            payload=payload,
+            provider_token="",
+            currency="XTR",
+            prices=prices,
+        )
+
+    except Exception as e:
+        logger.error(f"خطأ في شراء وقت استضافة: {e}")
+        keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data=f"hosting_purchase_{bot_id}")]]
+        await query.edit_message_text(
+            f"════════════════════════════\n"
+            f"════════════════════════════\n"
+        f"❌ <b>خطأ في الدفع</b>\n"
+        f"════════════════════════════\n\n"
+            f"السبب: {str(e)[:100]}",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="HTML"
+        )

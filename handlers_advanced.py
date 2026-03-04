@@ -44,7 +44,7 @@ async def add_bot_start(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
     if current_bots >= plan_config['max_bots']:
         await query.edit_message_text(
             f"⚠️ <b>وصلت للحد الأقصى للبوتات</b>\n"
-            f"{'─' * 35}\n\n"
+            f"────────────────────────────\n\n"
             f"📦 خطتك: {plan_config['emoji']} {plan_config['name']}\n"
             f"🤖 البوتات: {current_bots}/{plan_config['max_bots']}\n\n"
             f"💡 قم بترقية خطتك لإضافة المزيد من البوتات",
@@ -58,7 +58,7 @@ async def add_bot_start(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
     
     await query.message.reply_text(
         "📤 <b>إضافة بوت جديد</b>\n"
-        f"{'─' * 35}\n\n"
+        f"────────────────────────────\n\n"
         "📎 أرسل ملف البوت بصيغة <code>.py</code>\n\n"
         "💡 <b>ملاحظات:</b>\n"
         "• سيتم اكتشاف التوكن تلقائياً إن وجد\n"
@@ -97,7 +97,7 @@ async def deploy_zip_start(update: Update, context: ContextTypes.DEFAULT_TYPE, d
     
     await query.message.reply_text(
         "📦 <b>نشر بوت من ZIP</b>\n"
-        f"{'─' * 35}\n\n"
+        f"────────────────────────────\n\n"
         "📎 أرسل ملف ZIP يحتوي على ملفات البوت\n\n"
         "💡 <b>المتطلبات:</b>\n"
         "• يجب أن يحتوي على ملف <code>main.py</code> أو <code>bot.py</code>\n"
@@ -203,7 +203,7 @@ async def handle_bot_py(update: Update, context: ContextTypes.DEFAULT_TYPE, doc,
                 db.add_event_log(bot_id, "INFO", "✅ تم إضافة البوت بنجاح")
                 await update.message.reply_text(
                     "✅ <b>تم إضافة البوت بنجاح!</b>\n"
-                    f"{'─' * 35}\n\n"
+                    f"────────────────────────────\n\n"
                     f"🆔 المعرّف: <code>{bot_id}</code>\n"
                     f"📝 الاسم: <code>{safe_html_escape(doc.file_name)}</code>\n"
                     f"🔑 التوكن: <code>{token[:25]}...</code>\n\n"
@@ -225,7 +225,7 @@ async def handle_bot_py(update: Update, context: ContextTypes.DEFAULT_TYPE, doc,
             
             await update.message.reply_text(
                 "⚠️ <b>لم يتم اكتشاف التوكن</b>\n"
-                f"{'─' * 35}\n\n"
+                f"────────────────────────────\n\n"
                 "📎 أرسل توكن البوت:\n"
                 "<code>123456789:ABCDefGHIjkLmnoPQRsTuvWXYz</code>\n\n"
                 "💡 احصل على التوكن من @BotFather\n\n"
@@ -331,24 +331,37 @@ async def handle_bot_zip(update: Update, context: ContextTypes.DEFAULT_TYPE, db,
         
         if bot_id:
             result_text = (
-                "✅ <b>تم نشر البوت بنجاح!</b>\n"
-                f"{'═' * 35}\n\n"
+                f"════════════════════════════\n"
+                f"════════════════════════════\n"
+        f"✅ <b>تم نشر البوت بنجاح!</b>\n"
+        f"════════════════════════════\n\n"
                 f"🆔 المعرّف: <code>{bot_id}</code>\n"
                 f"📝 الاسم: <code>{safe_html_escape(bot_name)}</code>\n"
                 f"📄 الملف الرئيسي: <code>{safe_html_escape(main_file or 'غير مكتشف')}</code>\n"
             )
-            
+
             if token:
                 result_text += f"🔑 التوكن: <code>{token[:20]}...</code>\n"
             else:
                 result_text += "⚠️ التوكن: لم يتم اكتشافه\n"
-            
+
             if req_file.exists():
-                result_text += f"📦 المتطلبات: {'✅ تم التثبيت' if requirements_installed else '⚠️ فشل التثبيت'}\n"
-            
+                result_text += f"📦 المتطلبات: {'✅ مثبّتة' if requirements_installed else '⚠️ فشل التثبيت'}\n"
+
             result_text += "\n🎉 البوت جاهز للتشغيل!"
-            
-            await msg.edit_text(result_text, parse_mode="HTML")
+
+            await msg.edit_text(
+                result_text,
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("▶️ تشغيل البوت الآن", callback_data=f"start_{bot_id}")],
+                    [
+                        InlineKeyboardButton("⚙️ إدارة البوت", callback_data=f"manage_{bot_id}"),
+                        InlineKeyboardButton("📁 الملفات", callback_data=f"files_{bot_id}")
+                    ],
+                    [InlineKeyboardButton("🏠 القائمة الرئيسية", callback_data="main_menu")]
+                ])
+            )
             db.add_event_log(bot_id, "INFO", "📦 تم نشر البوت من ملف ZIP")
         else:
             await msg.edit_text("❌ فشل إضافة البوت. قد يكون التوكن مستخدماً.")
@@ -407,12 +420,23 @@ async def handle_token(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         if bot_id:
             db.add_event_log(bot_id, "INFO", "✅ تم إضافة البوت بنجاح")
             await update.message.reply_text(
-                "✅ <b>تم إضافة البوت بنجاح!</b>\n"
-                f"{'─' * 35}\n\n"
+                f"════════════════════════════\n"
+                f"════════════════════════════\n"
+        f"✅ <b>تم رفع البوت بنجاح!</b>\n"
+        f"════════════════════════════\n\n"
                 f"🆔 المعرّف: <code>{bot_id}</code>\n"
                 f"🔑 التوكن: <code>{token[:25]}...</code>\n\n"
-                "💡 ابدأ البوت من قائمة 'بوتاتي'",
-                parse_mode="HTML"
+                f"{'─'*28}\n"
+                f"👇 اختر الإجراء التالي:",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("▶️ تشغيل البوت الآن", callback_data=f"start_{bot_id}")],
+                    [
+                        InlineKeyboardButton("⚙️ إدارة البوت", callback_data=f"manage_{bot_id}"),
+                        InlineKeyboardButton("📁 الملفات", callback_data=f"files_{bot_id}")
+                    ],
+                    [InlineKeyboardButton("🏠 القائمة الرئيسية", callback_data="main_menu")]
+                ])
             )
         else:
             await update.message.reply_text("❌ فشل إضافة البوت")
@@ -447,7 +471,7 @@ async def handle_bot_file_upload(update: Update, context: ContextTypes.DEFAULT_T
         
         await update.message.reply_text(
             f"✅ <b>تم رفع الملف</b>\n"
-            f"{'─' * 35}\n\n"
+            f"────────────────────────────\n\n"
             f"📄 الملف: <code>{safe_html_escape(doc.file_name)}</code>\n"
             f"💾 الحجم: {get_file_size(file_path)}",
             parse_mode="HTML"
@@ -497,7 +521,7 @@ async def handle_bot_file_replace(update: Update, context: ContextTypes.DEFAULT_
         
         await update.message.reply_text(
             f"✅ <b>تم استبدال الملف</b>\n"
-            f"{'─' * 35}\n\n"
+            f"────────────────────────────\n\n"
             f"📄 الملف الجديد: <code>{safe_html_escape(doc.file_name)}</code>\n"
             f"📄 الملف القديم: <code>{safe_html_escape(old_main_file)}</code>\n"
             f"💾 نسخة احتياطية: <code>{old_main_file}.backup</code>\n\n"
@@ -542,7 +566,7 @@ async def confirm_delete(update: Update, context: ContextTypes.DEFAULT_TYPE, db)
         
         text = (
             f"⚠️ <b>تأكيد الحذف</b>\n"
-            f"{'═' * 40}\n\n"
+            f"════════════════════════════\n\n"
             f"🤖 البوت: <code>{safe_html_escape(bot[3])}</code>\n"
             f"🆔 المعرّف: <code>{bot_id}</code>\n\n"
             f"⚠️ <b>تحذير:</b>\n"
@@ -602,7 +626,7 @@ async def delete_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         
         await query.edit_message_text(
             "✅ <b>تم حذف البوت</b>\n"
-            f"{'─' * 35}\n\n"
+            f"────────────────────────────\n\n"
             f"🤖 البوت <code>{safe_html_escape(bot_name)}</code> تم إزالته نهائياً.",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("🔙 العودة للبوتات", callback_data="my_bots")
@@ -631,8 +655,9 @@ async def request_upgrade(update: Update, context: ContextTypes.DEFAULT_TYPE, db
         return
     
     text = (
+        f"════════════════════════════\n"
         f"💎 <b>طلب ترقية الخطة</b>\n"
-        f"{'═' * 40}\n\n"
+        f"════════════════════════════\n\n"
         f"📦 خطتك الحالية: {PLANS[current_plan]['emoji']} <b>{PLANS[current_plan]['name']}</b>\n\n"
         f"🆙 <b>اختر الخطة المطلوبة:</b>\n"
     )
@@ -690,7 +715,7 @@ async def select_upgrade(update: Update, context: ContextTypes.DEFAULT_TYPE, db)
                 chat_id=ADMIN_ID,
                 text=(
                     f"📤 <b>طلب ترقية جديد</b>\n"
-                    f"{'═' * 40}\n\n"
+                    f"════════════════════════════\n\n"
                     f"👤 المستخدم: @{user.username or 'N/A'}\n"
                     f"🆔 المعرّف: <code>{user_id}</code>\n"
                     f"📦 الخطة الحالية: {PLANS[current_plan]['name']}\n"
@@ -712,7 +737,7 @@ async def select_upgrade(update: Update, context: ContextTypes.DEFAULT_TYPE, db)
         
         await query.edit_message_text(
             f"📤 <b>تم إرسال طلب الترقية</b>\n"
-            f"{'─' * 35}\n\n"
+            f"────────────────────────────\n\n"
             f"🆙 الخطة: {plan_config['emoji']} <b>{plan_config['name']}</b>\n"
             f"💰 السعر: <b>{plan_config['price']}</b>\n\n"
             f"💳 <b>طريقة الدفع:</b>\n"
@@ -765,7 +790,7 @@ async def approve_upgrade(update: Update, context: ContextTypes.DEFAULT_TYPE, db
                 chat_id=user_id,
                 text=(
                     f"🎉 <b>تهانينا! تمت ترقية خطتك</b>\n"
-                    f"{'═' * 40}\n\n"
+                    f"════════════════════════════\n\n"
                     f"📦 الخطة الجديدة: {plan_config['emoji']} <b>{plan_config['name']}</b>\n\n"
                     f"✨ <b>المميزات:</b>\n"
                     f"   • 🤖 {plan_config['max_bots']} بوتات\n"
@@ -867,7 +892,7 @@ async def approve_user(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
                 chat_id=user_id,
                 text=(
                     "🎉 <b>تهانينا! تم قبولك</b>\n"
-                    f"{'─' * 35}\n\n"
+                    f"────────────────────────────\n\n"
                     "يمكنك الآن استخدام NeuroHost بالكامل.\n\n"
                     "🚀 أرسل /start للبدء!"
                 ),
@@ -956,8 +981,9 @@ async def sys_status(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         stats = db.get_system_stats()
         
         text = (
-            f"📊 <b>حالة النظام - NeuroHost V8</b>\n"
-            f"{'═' * 45}\n\n"
+            f"════════════════════════════\n"
+            f"📊 <b>حالة النظام - NeurHostX V9.0</b>\n"
+            f"════════════════════════════\n\n"
             f"💻 <b>موارد الخادم:</b>\n"
             f"   CPU: {render_bar(cpu)}\n"
             f"   RAM: {render_bar(mem)} ({mem_used:.1f}/{mem_total:.1f} GB)\n"
@@ -1004,41 +1030,65 @@ async def sys_status(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         await query.answer("❌ حدث خطأ", show_alert=True)
 
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
-    """لوحة تحكم الأدمن"""
+    """لوحة تحكم الأدمن المحسّنة"""
     query = update.callback_query
     await query.answer()
     
     if update.effective_user.id != ADMIN_ID:
         await query.answer("⛔ صلاحيات الأدمن مطلوبة", show_alert=True)
         return
-    
+
+    try:
+        all_users = db.get_all_users()
+        all_bots = db.get_all_bots()
+        pending = db.get_pending_users()
+        pending_upgrades = db.get_pending_upgrades()
+        running_bots = db.get_running_bots()
+        blocked = db.get_blocked_users()
+    except Exception:
+        all_users = all_bots = pending = pending_upgrades = running_bots = blocked = []
+
+    notif_pending = f" ({len(pending)})" if pending else ""
+    upgrade_notif = f" ({len(pending_upgrades)})" if pending_upgrades else ""
+
     text = (
+        f"════════════════════════════\n"
+        f"════════════════════════════\n"
         f"👑 <b>لوحة تحكم الأدمن</b>\n"
-        f"{'═' * 40}\n\n"
-        f"مرحباً بك في لوحة التحكم الرئيسية.\n"
-        f"اختر القسم الذي تريد إدارته:\n"
+        f"════════════════════════════\n\n"
+        f"📊 <b>إحصائيات النظام:</b>\n"
+        f"   👥 المستخدمون: <b>{len(all_users)}</b>\n"
+        f"   🤖 البوتات: <b>{len(running_bots)}/{len(all_bots)}</b> (نشط/كلي)\n"
+        f"   ⏳ معلق الموافقة: <b>{len(pending)}</b>\n"
+        f"   🚫 محظور: <b>{len(blocked)}</b>\n\n"
+        f"{'─'*28}\n"
+        f"👇 اختر القسم:\n"
     )
-    
+
     keyboard = [
         [
             InlineKeyboardButton("📊 حالة النظام", callback_data="sys_status"),
-            InlineKeyboardButton("👥 المستخدمون", callback_data="admin_users")
+            InlineKeyboardButton(f"👥 المستخدمون", callback_data="admin_users")
         ],
         [
             InlineKeyboardButton("🤖 البوتات", callback_data="admin_bots"),
-            InlineKeyboardButton("📤 الترقيات", callback_data="admin_upgrades")
+            InlineKeyboardButton(f"📤 الترقيات{upgrade_notif}", callback_data="admin_upgrades")
         ],
         [
-            InlineKeyboardButton("⏳ المعلقون", callback_data="admin_pending")
+            InlineKeyboardButton(f"⏳ المعلقون{notif_pending}", callback_data="admin_pending"),
+            InlineKeyboardButton("🚫 المحظورون", callback_data="admin_blocked")
         ],
-        [InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]
+        [InlineKeyboardButton("🛡️ الإشراف والإدارة", callback_data="admin_moderation_panel")],
+        [InlineKeyboardButton("⚙️ الإعدادات المتقدمة", callback_data="admin_settings_panel")],
+        [
+            InlineKeyboardButton("🎮 عمليات جماعية", callback_data="bulk_bot_operations"),
+            InlineKeyboardButton("💾 النسخ الاحتياطية", callback_data="backup_panel")
+        ],
+        [InlineKeyboardButton("📢 الإشعارات الذكية", callback_data="smart_notifications_preview")],
+        [InlineKeyboardButton("🔙 رجوع للقائمة", callback_data="main_menu")]
     ]
     
-    await query.edit_message_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="HTML"
-    )
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
 
 async def admin_users(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
     """إدارة المستخدمين"""
@@ -1053,8 +1103,9 @@ async def admin_users(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         users = db.get_all_users()
         
         text = (
+            f"════════════════════════════\n"
             f"👥 <b>إدارة المستخدمين</b>\n"
-            f"{'═' * 40}\n\n"
+            f"════════════════════════════\n\n"
             f"📊 الإجمالي: <b>{len(users)}</b> مستخدم\n\n"
         )
         
@@ -1105,14 +1156,14 @@ async def admin_pending(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         if not pending:
             text = (
                 f"⏳ <b>الطلبات المعلقة</b>\n"
-                f"{'═' * 40}\n\n"
+                f"════════════════════════════\n\n"
                 f"✅ لا توجد طلبات معلقة حالياً"
             )
             keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="admin_panel")]]
         else:
             text = (
                 f"⏳ <b>الطلبات المعلقة ({len(pending)})</b>\n"
-                f"{'═' * 40}\n\n"
+                f"════════════════════════════\n\n"
             )
             
             keyboard = []
@@ -1151,7 +1202,7 @@ async def admin_blocked(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         
         text = (
             f"🚫 <b>المستخدمون المحظورون ({len(blocked)})</b>\n"
-            f"{'═' * 40}\n\n"
+            f"════════════════════════════\n\n"
         )
         
         if not blocked:
@@ -1189,14 +1240,14 @@ async def admin_upgrades(update: Update, context: ContextTypes.DEFAULT_TYPE, db)
         if not upgrades:
             text = (
                 f"📤 <b>طلبات الترقية</b>\n"
-                f"{'═' * 40}\n\n"
+                f"════════════════════════════\n\n"
                 f"✅ لا توجد طلبات معلقة"
             )
             keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="admin_panel")]]
         else:
             text = (
                 f"📤 <b>طلبات الترقية ({len(upgrades)})</b>\n"
-                f"{'═' * 40}\n\n"
+                f"════════════════════════════\n\n"
             )
             
             keyboard = []
@@ -1242,8 +1293,9 @@ async def admin_bots(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         stopped = sum(1 for b in bots if b[4] == 'stopped')
         
         text = (
+            f"════════════════════════════\n"
             f"🤖 <b>إدارة البوتات</b>\n"
-            f"{'═' * 40}\n\n"
+            f"════════════════════════════\n\n"
             f"📊 الإجمالي: <b>{len(bots)}</b>\n"
             f"🟢 نشطة: <b>{running}</b>\n"
             f"🔴 متوقفة: <b>{stopped}</b>\n\n"
@@ -1314,7 +1366,7 @@ async def bot_backup(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
             document=InputFile(zip_buffer, filename=zip_name),
             caption=(
                 f"📤 <b>نسخة احتياطية للبوت</b>\n"
-                f"{'─' * 30}\n\n"
+                f"────────────────────────────\n\n"
                 f"🤖 البوت: <code>{safe_html_escape(bot[3])}</code>\n"
                 f"📅 التاريخ: {get_current_time()[:10]}"
             ),
@@ -1346,18 +1398,31 @@ async def bot_settings(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         
         auto_start = bot[28] if len(bot) > 28 else 0
         priority = bot[29] if len(bot) > 29 else 1
+        description = bot[27] if len(bot) > 27 else ''
+        priority_text = {1: "🔵 عادي", 2: "🟡 متوسط", 3: "🔴 عالي"}.get(priority, "🔵 عادي")
         
         text = (
+            f"════════════════════════════\n"
             f"⚙️ <b>إعدادات البوت</b>\n"
-            f"{'═' * 40}\n\n"
-            f"🤖 البوت: <code>{safe_html_escape(bot[3])}</code>\n"
-            f"📄 الملف الرئيسي: <code>{bot[6]}</code>\n\n"
-            f"🔧 <b>الخيارات:</b>\n"
-            f"   • التشغيل التلقائي: {'✅' if auto_start else '❌'}\n"
-            f"   • الأولوية: {priority}\n"
+            f"════════════════════════════\n\n"
+            f"🤖 البوت: <b>{safe_html_escape(bot[3])}</b>\n"
+            f"📄 الملف الرئيسي: <code>{bot[6]}</code>\n"
+            f"{'─'*28}\n"
+            f"🔄 الاسترجاع التلقائي: {'✅ مفعّل' if auto_start else '❌ معطّل'}\n"
+            f"⚡ الأولوية: {priority_text}\n"
+            f"📝 الوصف: {safe_html_escape(description[:40]) if description else '<i>لا يوجد</i>'}\n"
         )
         
         keyboard = [
+            [InlineKeyboardButton("🆕 تغيير الاسم", callback_data=f"rename_bot_{bot_id}")],
+            [InlineKeyboardButton("📄 تغيير الملف الرئيسي", callback_data=f"change_main_file_{bot_id}")],
+            [InlineKeyboardButton(
+                f"{'✅' if auto_start else '❌'} الاسترجاع التلقائي",
+                callback_data=f"toggle_auto_recovery_{bot_id}"
+            )],
+            [InlineKeyboardButton("⚡ الأولوية", callback_data=f"set_priority_{bot_id}"),
+             InlineKeyboardButton("📝 الوصف", callback_data=f"edit_description_{bot_id}")],
+            [InlineKeyboardButton("⚙️ إعدادات متقدمة", callback_data=f"bot_settings_advanced_{bot_id}")],
             [InlineKeyboardButton("🔙 رجوع", callback_data=f"manage_{bot_id}")]
         ]
         
@@ -1370,6 +1435,7 @@ async def bot_settings(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
     except Exception as e:
         logger.error(f"خطأ في إعدادات البوت: {e}")
         await query.answer("❌ حدث خطأ", show_alert=True)
+
 
 async def clear_logs(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
     """مسح السجلات"""
@@ -1391,21 +1457,33 @@ async def clear_logs(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
     except Exception as e:
         logger.error(f"خطأ في مسح السجلات: {e}")
         await query.answer("❌ حدث خطأ", show_alert=True)
-
 # ============================================================================
-# معالجات الإعدادات المتقدمة (مدمجة من advanced_handlers.py)
+# معالجات الإعدادات المتقدمة - NeurHostX V8.5
 # ============================================================================
+"""
+معالجات متقدمة للتحكم في إعدادات البوت والبوتات من داخل البوت
+"""
 
+import logging
+from typing import Optional, Dict, Any, List
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes
+
+from database import Database
 from settings_manager import settings_manager
 from help_manager import help_manager
 from formatters import MessageBuilder, TextFormatter, format_bold, format_code
 
-async def admin_settings_panel(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
+logger = logging.getLogger(__name__)
+
+
+async def admin_settings_panel(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database):
     """لوحة إعدادات للأدمن (تحكم شامل)"""
     query = update.callback_query
     await query.answer()
 
     user_id = update.effective_user.id
+    from config import ADMIN_ID
     if user_id != ADMIN_ID:
         await query.edit_message_text(
             "❌ هذه الميزة متاحة للأدمن فقط",
@@ -1434,6 +1512,11 @@ async def admin_settings_panel(update: Update, context: ContextTypes.DEFAULT_TYP
     ])
 
     keyboard = [
+        [InlineKeyboardButton("🔧 إعدادات النظام", callback_data="admin_settings_system")],
+        [InlineKeyboardButton("📈 حدود الموارد", callback_data="admin_settings_resources")],
+        [InlineKeyboardButton("⏱️ إعدادات الوقت", callback_data="admin_settings_time")],
+        [InlineKeyboardButton("📁 إعدادات الملفات", callback_data="admin_settings_files")],
+        [InlineKeyboardButton("🔐 إعدادات الأمان", callback_data="admin_settings_security")],
         [InlineKeyboardButton("📊 عرض جميع الإعدادات", callback_data="admin_settings_view_all")],
         [InlineKeyboardButton("💾 حفظ وتطبيق", callback_data="admin_settings_save")],
         [InlineKeyboardButton("🔙 رجوع", callback_data="admin_panel")],
@@ -1454,7 +1537,7 @@ async def view_all_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     settings = settings_manager.get_all()
 
     text = "<b>📋 جميع الإعدادات الحالية</b>\n"
-    text += "═" * 40 + "\n\n"
+    text += "════════════════════════════" + "\n\n"
     text += f"<code>{str(settings)}</code>\n\n"
     text += "<i>ملاحظة: يمكنك تعديل هذه الإعدادات في ملف settings.json</i>"
 
@@ -1466,161 +1549,380 @@ async def view_all_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="HTML"
     )
 
-# ============================================================================
-# معالجات الإدارة المحسنة (مدمجة من enhanced_handlers.py)
-# ============================================================================
 
-async def admin_moderation_panel(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
-    """لوحة الإشراف والإدارة المتقدمة 🛡️"""
+async def manage_bot_settings(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database):
+    """إدارة إعدادات بوت معين (متقدم)"""
     query = update.callback_query
     await query.answer()
-    user_id = update.effective_user.id
 
-    # التحقق من أن المستخدم أدمن
-    if user_id != ADMIN_ID:
+    # استخراج رقم البوت من callback_data
+    callback_data = query.data
+    bot_id = int(callback_data.replace("bot_settings_advanced_", ""))
+
+    user_id = update.effective_user.id
+    bot = db.get_bot(bot_id)
+
+    if not bot or bot[1] != user_id:
+        await query.edit_message_text("❌ البوت غير موجود أو لا تملك صلاحية الوصول")
+        return
+
+    # بناء الرسالة
+    builder = MessageBuilder()
+    builder.add_header(f"⚙️ إعدادات البوت: {bot[3]}")
+    builder.add_empty_line()
+
+    builder.add_section("📊 البيانات الحالية", "")
+    builder.add_list([
+        f"معرّف البوت: {format_code(str(bot_id))}",
+        f"الحالة: {bot[2]}",
+        f"الملف الرئيسي: {format_code(bot[5])}",
+        f"الوقت المتبقي: {bot[4]} ثانية",
+        f"وضع الاسترجاع التلقائي: {'✅ مفعّل' if bot[9] else '❌ معطّل'}",
+    ])
+
+    keyboard = [
+        [InlineKeyboardButton("🆕 تغيير الاسم", callback_data=f"rename_bot_{bot_id}")],
+        [InlineKeyboardButton("📄 تغيير الملف الرئيسي", callback_data=f"change_main_file_{bot_id}")],
+        [InlineKeyboardButton("🔄 تبديل الاسترجاع التلقائي", callback_data=f"toggle_auto_recovery_{bot_id}")],
+        [InlineKeyboardButton("⏰ تعيين الأولوية", callback_data=f"set_priority_{bot_id}")],
+        [InlineKeyboardButton("📝 وصف البوت", callback_data=f"edit_description_{bot_id}")],
+        [InlineKeyboardButton("🔙 رجوع", callback_data=f"manage_{bot_id}")],
+    ]
+
+    await query.edit_message_text(
+        builder.build(),
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
+
+
+async def bulk_bot_operations(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database):
+    """عمليات جماعية على عدة بوتات"""
+    query = update.callback_query
+    await query.answer()
+
+    user_id = update.effective_user.id
+    bots = db.get_user_bots(user_id)
+
+    if not bots:
+        await query.edit_message_text("❌ لا توجد بوتات لديك")
+        return
+
+    # بناء الرسالة
+    builder = MessageBuilder()
+    builder.add_header("🎮 العمليات الجماعية")
+    builder.add_empty_line()
+
+    builder.add_section("📊 البيانات", f"لديك {len(bots)} بوت")
+    running = sum(1 for b in bots if b[2] == 'running')
+    stopped = sum(1 for b in bots if b[2] == 'stopped')
+    builder.add_list([
+        f"🟢 نشطة: {running}",
+        f"🔴 متوقفة: {stopped}",
+    ])
+    builder.add_empty_line()
+
+    builder.add_section("⚡ العمليات المتاحة", "")
+
+    keyboard = [
+        [InlineKeyboardButton("▶️ تشغيل الكل", callback_data="bulk_start_all")],
+        [InlineKeyboardButton("⏹️ إيقاف الكل", callback_data="bulk_stop_all")],
+        [InlineKeyboardButton("🔄 إعادة تشغيل الكل", callback_data="bulk_restart_all")],
+        [InlineKeyboardButton("📊 إحصائيات الكل", callback_data="bulk_stats_all")],
+        [InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")],
+    ]
+
+    await query.edit_message_text(
+        builder.build(),
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
+
+
+async def bulk_start_all_bots(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database):
+    """تشغيل جميع البوتات دفعة واحدة"""
+    query = update.callback_query
+    await query.answer()
+
+    user_id = update.effective_user.id
+    bots = db.get_user_bots(user_id)
+
+    if not bots:
         await query.edit_message_text(
-            "⛔ <b>غير مصرح</b>\n"
-            "هذه الميزة متاحة للأدمن فقط",
+            "════════════════════════════\n"
+            "❌ <b>لا توجد بوتات</b>\n"
+            "════════════════════════════",
             parse_mode="HTML"
         )
         return
 
-    # بناء لوحة الإدارة
-    keyboard = [
-        [InlineKeyboardButton("🚫 حظر المستخدمين", callback_data="admin_ban_users")],
-        [InlineKeyboardButton("📊 إحصائيات الإشراف", callback_data="admin_moderation_stats")],
-        [InlineKeyboardButton("🔙 رجوع", callback_data="admin_panel")]
-    ]
-
-    message = (
-        "🛡️ <b>لوحة الإشراف والإدارة</b>\n"
-        f"{'═' * 30}\n\n"
-        "👇 اختر العملية المراد تنفيذها:\n\n"
-        "🚫 <b>الحظر:</b> منع الوصول نهائياً\n"
-        "📊 <b>الإحصائيات:</b> عرض النشاط"
+    await query.edit_message_text(
+        "════════════════════════════\n"
+        "⏳ <b>جاري تشغيل البوتات...</b>\n"
+        "════════════════════════════\n\n"
+        "قد يستغرق هذا بعض الوقت...",
+        parse_mode="HTML"
     )
 
+    pm = context.bot_data.get('pm')
+    succeeds = 0
+    fails = 0
+    fail_names = []
+
+    for bot in bots:
+        bot_id = bot[0]
+        bot_name = bot[3]
+        bot_status = bot[4] if len(bot) > 4 else "stopped"
+        if bot_status == "running":
+            succeeds += 1
+            continue
+        try:
+            if pm:
+                ok, msg = await pm.start_bot(bot_id, context.application)
+                if ok:
+                    succeeds += 1
+                else:
+                    fails += 1
+                    fail_names.append(bot_name)
+            else:
+                succeeds += 1  # fallback
+        except Exception as e:
+            logger.error(f"خطأ تشغيل {bot_id}: {e}")
+            fails += 1
+            fail_names.append(bot_name)
+
+    text = (
+        "════════════════════════════\n"
+        "✅ <b>اكتملت العمليات الجماعية</b>\n"
+        "════════════════════════════\n\n"
+        f"▶️ تم التشغيل: <b>{succeeds}</b>\n"
+        f"❌ فشل: <b>{fails}</b>\n"
+    )
+    if fail_names:
+        text += "\n⚠️ البوتات التي فشلت:\n"
+        for n in fail_names[:5]:
+            text += f"   • {n}\n"
+
+    keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="bulk_bot_operations")]]
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
+
+
+async def backup_restore_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database):
+    """قائمة النسخ الاحتياطية والاسترجاع"""
+    query = update.callback_query
+    await query.answer()
+
+    # يدعم كلا الأنماطين: backups_menu_ و restore_backup_menu_
+    raw = query.data.replace("backups_menu_", "").replace("restore_backup_menu_", "")
+    bot_id = int(raw)
+
+    user_id = update.effective_user.id
+    bot = db.get_bot(bot_id)
+
+    if not bot or bot[1] != user_id:
+        await query.edit_message_text("❌ البوت غير موجود")
+        return
+
+    backups = db.get_bot_backups(bot_id)
+
+    # backups schema: (id, bot_id, file_path, size, created_at)
+    text = (
+        f"════════════════════════════\n"
+        f"💾 <b>النسخ الاحتياطية</b>\n"
+        f"════════════════════════════\n\n"
+        f"🤖 البوت: <b>{safe_html_escape(bot[3])}</b>\n"
+        f"📦 عدد النسخ: <b>{len(backups)}</b>\n\n"
+    )
+
+    if backups:
+        text += "📋 <b>آخر النسخ:</b>\n"
+        for bk in backups[:5]:
+            size_mb = round((bk[3] or 0) / (1024*1024), 2)
+            date_str = str(bk[4])[:16] if bk[4] else "غير معروف"
+            text += f"   • {date_str} — {size_mb} MB\n"
+    else:
+        text += "📭 <i>لا توجد نسخ احتياطية بعد</i>\n"
+
+    keyboard = [
+        [InlineKeyboardButton("📸 إنشاء نسخة جديدة الآن", callback_data=f"create_backup_{bot_id}")],
+    ]
+    if backups:
+        keyboard.append([InlineKeyboardButton("↩️ استرجاع من نسخة", callback_data=f"restore_backup_{bot_id}")])
+        keyboard.append([InlineKeyboardButton("🗑️ حذف نسخة", callback_data=f"delete_backup_menu_{bot_id}")])
+
+    keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data=f"manage_{bot_id}")])
+
     await query.edit_message_text(
-        message,
+        text,
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode="HTML"
     )
 
 
-async def admin_ban_users(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
-    """إدارة جرد المستخدمين المحظورين"""
+async def restore_from_backup(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database):
+    """استرجاع من نسخة احتياطية"""
+    query = update.callback_query
+    await query.answer("⏳ جاري الاسترجاع...")
+
+    bot_id_str = query.data.replace("restore_backup_menu_", "").replace("restore_backup_", "")
+    try:
+        bot_id = int(bot_id_str)
+    except ValueError:
+        await query.answer("❌ بيانات غير صحيحة", show_alert=True)
+        return
+
+    backups = db.get_bot_backups(bot_id)
+    if not backups:
+        await query.answer("❌ لا توجد نسخ احتياطية", show_alert=True)
+        return
+
+    latest = backups[0]
+    from pathlib import Path
+    import zipfile
+
+    file_path = Path(latest[2]) if latest[2] else None
+    if not file_path or not file_path.exists():
+        await query.answer("❌ ملف النسخة غير موجود", show_alert=True)
+        return
+
+    try:
+        bot = db.get_bot(bot_id)
+        if not bot:
+            return
+        bot_path = Path(BOTS_DIR) / bot[5]
+
+        with zipfile.ZipFile(str(file_path), 'r') as zf:
+            zf.extractall(str(bot_path.parent))
+
+        db.add_event_log(bot_id, "INFO", f"↩️ تم استرجاع نسخة احتياطية")
+        await query.edit_message_text(
+            f"════════════════════════════\n"
+            f"✅ <b>تم الاسترجاع بنجاح!</b>\n"
+            f"════════════════════════════\n\n"
+            f"📅 تم استرجاع نسخة: {str(latest[4])[:16]}\n\n"
+            f"⚠️ أعد تشغيل البوت لتطبيق التغييرات",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("▶️ تشغيل البوت", callback_data=f"start_{bot_id}")],
+                [InlineKeyboardButton("🔙 رجوع", callback_data=f"manage_{bot_id}")]
+            ])
+        )
+    except Exception as e:
+        logger.error(f"خطأ في الاسترجاع: {e}")
+        await query.edit_message_text(
+            f"════════════════════════════\n"
+            f"❌ <b>فشل الاسترجاع</b>\n"
+            f"════════════════════════════\n\n"
+            f"السبب: {str(e)[:100]}",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 رجوع", callback_data=f"manage_{bot_id}")]
+            ])
+        )
+
+
+async def faq_interactive_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """قائمة تفاعلية للأسئلة الشائعة"""
     query = update.callback_query
     await query.answer()
 
-    blocked_users = db.get_blocked_users()
+    categories = help_manager.get_faq_categories()
 
-    if not blocked_users:
-        keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="admin_moderation_panel")]]
+    text = "<b>❓ الأسئلة الشائعة بالفئات</b>\n\n"
+    text += "اختر فئة لعرض الأسئلة:"
+
+    keyboard = []
+    for category in categories:
+        keyboard.append([InlineKeyboardButton(f"🏷️ {category}", callback_data=f"faq_cat_{category.replace(' ', '_')}")])
+
+    keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="help")])
+
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
+
+
+async def faq_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """عرض أسئلة فئة معينة"""
+    query = update.callback_query
+    await query.answer()
+
+    callback_data = query.data
+    category = callback_data.replace("faq_cat_", "").replace("_", " ")
+
+    faqs = help_manager.get_faq_by_category(category)
+
+    if not faqs:
         await query.edit_message_text(
-            "✅ لا توجد مستخدمون محظورون حالياً",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            f"❌ لا توجد أسئلة في فئة '{category}'",
             parse_mode="HTML"
         )
         return
 
-    message = "🚫 <b>المستخدمون المحظورون</b>\n" + "═" * 30 + "\n\n"
+    text = f"<b>❓ أسئلة فئة: {category}</b>\n\n"
+    text += f"عدد الأسئلة: {len(faqs)}\n\n"
 
-    for user in blocked_users[:10]:  # عرض أول 10 فقط
-        user_id = user[0]
-        username = user[1] or "بدون اسم"
-        message += f"👤 {username}\n💳 ID: <code>{user_id}</code>\n\n"
+    keyboard = []
+    for faq in faqs:
+        keyboard.append([InlineKeyboardButton(
+            faq['question'][:40] + "..." if len(faq['question']) > 40 else faq['question'],
+            callback_data=f"faq_detail_{faq['id']}"
+        )])
 
-    message += f"\n📊 الإجمالي: {len(blocked_users)}"
+    keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="faq_interactive_menu")])
 
-    keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="admin_moderation_panel")]]
     await query.edit_message_text(
-        message,
+        text,
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode="HTML"
     )
 
 
-async def admin_moderation_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
-    """عرض إحصائيات الإشراف"""
-    query = update.callback_query
-    await query.answer()
-    user_id = update.effective_user.id
-
-    blocked_users = db.get_blocked_users()
-    pending_users = db.get_pending_users()
-
-    message = (
-        "📊 <b>إحصائيات الإشراف</b>\n"
-        f"{'═' * 30}\n\n"
-        f"🚫 المحظورون: {len(blocked_users)}\n"
-        f"⏳ طلبات معلقة: {len(pending_users)}\n\n"
-        f"{'─' * 30}\n"
-        "⌚ آخر تحديث: الآن"
-    )
-
-    keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="admin_moderation_panel")]]
-    await query.edit_message_text(
-        message,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="HTML"
-    )
-
-# ============================================================================
-# معالجات الشراء والدفع (مدمجة من enhanced_handlers.py)
-# ============================================================================
-
-async def hosting_purchase_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
-    """قائمة شراء وقت الاستضافة الإضافي 💳"""
+async def faq_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """عرض تفاصيل سؤال شائع"""
     query = update.callback_query
     await query.answer()
 
-    bot_id = context.user_data.get('selected_bot_id', 1)
+    callback_data = query.data
+    faq_id = int(callback_data.replace("faq_detail_", ""))
 
-    keyboard = [
-        [InlineKeyboardButton("📅 أسبوع (7 أيام) - 5 ⭐", callback_data=f"buy_hosting_week_{bot_id}")],
-        [InlineKeyboardButton("📆 شهر (30 يوم) - 15 ⭐", callback_data=f"buy_hosting_month_{bot_id}")],
-        [InlineKeyboardButton("💝 تبرع", callback_data="donate_stars")],
-        [InlineKeyboardButton("🔙 رجوع", callback_data=f"manage_{bot_id}")]
-    ]
+    faq = help_manager.get_faq_by_id(faq_id)
 
-    message = (
-        "🕥 <b>شراء وقت استضافة إضافي</b>\n"
-        f"{'═' * 30}\n\n"
-        "⭐ اختر الباقة المناسبة:\n\n"
-        "💡 <i>سيتم تحديث الوقت تلقائياً بعد الدفع</i>"
-    )
+    if not faq:
+        await query.edit_message_text("❌ السؤال غير موجود")
+        return
+
+    text = help_manager.format_faq(faq)
+
+    keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="faq_interactive_menu")]]
 
     await query.edit_message_text(
-        message,
+        text,
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode="HTML"
     )
 
 
-async def donate_stars_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
-    """معالج التبرعات بنجوم تلجرام 💝"""
-    query = update.callback_query
-    await query.answer()
+# دوال مساعدة للعمليات الجماعية
+async def execute_bulk_operation(bot_list: List, operation: str, db: Database, pm) -> Dict[str, int]:
+    """تنفيذ عملية جماعية"""
+    results = {'success': 0, 'failed': 0}
 
-    keyboard = [
-        [InlineKeyboardButton("1 ⭐", callback_data="donate_amount_1")],
-        [InlineKeyboardButton("5 ⭐", callback_data="donate_amount_5")],
-        [InlineKeyboardButton("10 ⭐", callback_data="donate_amount_10")],
-        [InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]
-    ]
+    for bot in bot_list:
+        try:
+            if operation == 'start':
+                await pm.start_bot(bot[0])
+            elif operation == 'stop':
+                await pm.stop_bot(bot[0])
+            elif operation == 'restart':
+                await pm.stop_bot(bot[0])
+                await pm.start_bot(bot[0])
 
-    message = (
-        "💝 <b>دعم المشروع بالتبرع</b>\n"
-        f"{'═' * 30}\n\n"
-        "❤️ ساهم في تطوير NeurHostX!\n\n"
-        "كل نجم يساعد في:\n"
-        "✨ تحسين الخدمات\n"
-        "🚀 إضافة ميزات جديدة\n"
-        "🛡️ تحسين الأمان"
-    )
+            results['success'] += 1
+        except Exception as e:
+            logger.error(f"❌ خطأ في العملية {operation}: {e}")
+            results['failed'] += 1
 
-    await query.edit_message_text(
-        message,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="HTML"
-    )
+    return results

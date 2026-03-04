@@ -34,7 +34,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database
     if status == 'pending' and user.id != ADMIN_ID:
         await update.message.reply_text(
             "⏳ <b>طلبك تحت المراجعة</b>\n"
-            f"{'─' * 35}\n\n"
+            f"────────────────────────────\n\n"
             "سيتم إخطارك بمجرد الموافقة على طلبك.\n"
             "📬 شكراً لصبرك!",
             parse_mode="HTML"
@@ -46,7 +46,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database
                 chat_id=ADMIN_ID,
                 text=(
                     f"🔔 <b>طلب انضمام جديد</b>\n"
-                    f"{'─' * 35}\n\n"
+                    f"────────────────────────────\n\n"
                     f"👤 المستخدم: @{user.username or 'N/A'}\n"
                     f"📝 الاسم: {safe_html_escape(user.first_name or 'N/A')}\n"
                     f"🆔 المعرّف: <code>{user.id}</code>\n"
@@ -88,22 +88,35 @@ async def _show_main_menu(target, user, db, edit=False):
     bots = db.get_user_bots(user.id)
     running_bots = sum(1 for b in bots if b[2] == 'running')
     total_remaining = sum(b[4] for b in bots if b[4])
+    sleeping_bots = sum(1 for b in bots if b[6])
     
     keyboard = [
         [
             InlineKeyboardButton("➕ إضافة بوت", callback_data="add_bot"),
             InlineKeyboardButton("📦 نشر ZIP", callback_data="deploy_zip")
         ],
-        [InlineKeyboardButton(f"📂 بوتاتي ({len(bots)})", callback_data="my_bots")],
+        [InlineKeyboardButton(f"📂 بوتاتي ({len(bots)}) | 🟢 {running_bots}", callback_data="my_bots")],
         [
             InlineKeyboardButton("💎 خطتي", callback_data="my_plan"),
-            InlineKeyboardButton("ℹ️ مساعدة", callback_data="help")
+            InlineKeyboardButton("⬆️ ترقية", callback_data="plans_menu")
         ],
         [
             InlineKeyboardButton("📊 إحصائياتي", callback_data="user_stats"),
             InlineKeyboardButton("⚙️ الإعدادات", callback_data="settings")
-        ]
+        ],
     ]
+
+    # زر العمليات الجماعية للخطط المدفوعة
+    if plan != 'free' and bots:
+        keyboard.append([
+            InlineKeyboardButton("🩺 فحص البوتات", callback_data="health_check"),
+            InlineKeyboardButton("📈 وقت التشغيل", callback_data="uptime_stats")
+        ])
+
+    keyboard.append([
+        InlineKeyboardButton("ℹ️ مساعدة", callback_data="help"),
+        InlineKeyboardButton("💝 دعم المشروع", callback_data="donate_stars")
+    ])
     
     # أزرار الأدمن
     if user.id == ADMIN_ID:
@@ -111,16 +124,26 @@ async def _show_main_menu(target, user, db, edit=False):
         keyboard.append([InlineKeyboardButton("👑 لوحة التحكم", callback_data="admin_panel")])
     
     text = (
-        f"🚀 <b>NeuroHost V8 - نسخة المؤسسة</b>\n"
-        f"{'═' * 40}\n\n"
+        f"════════════════════════════\n"
+        f"🚀 <b>NeurHostX V9.2</b>\n"
+        f"════════════════════════════\n\n"
         f"👋 مرحباً <b>{safe_html_escape(user.first_name or 'مستخدم')}</b>!\n\n"
+        f"{'─'*28}\n"
         f"📦 <b>الخطة:</b> {plan_config['emoji']} {plan_config['name']}\n"
-        f"🤖 <b>البوتات:</b> {len(bots)}/{plan_config['max_bots']} ({running_bots} نشط)\n"
+        f"🤖 <b>البوتات:</b> {len(bots)}/{plan_config['max_bots']} "
+        f"({'🟢' if running_bots > 0 else '🔴'}{running_bots} نشط"
+        f"{f' | 😴{sleeping_bots} سكون' if sleeping_bots else ''})\n"
         f"⏱️ <b>الوقت المتبقي:</b> {seconds_to_human(total_remaining)}\n"
-        f"💻 <b>حد CPU:</b> {plan_config['cpu_limit']}%\n"
-        f"🧠 <b>حد RAM:</b> {plan_config['mem_limit']} MB\n\n"
-        f"💰 <b>السعر:</b> {plan_config['price']}"
+        f"{'─'*28}\n"
+        f"💻 CPU: {plan_config['cpu_limit']}% | 🧠 RAM: {plan_config['mem_limit']} MB\n"
     )
+    
+    # تحذير انتهاء الوقت
+    if total_remaining > 0 and total_remaining < 7200:
+        text += f"\n⚠️ <b>تنبيه:</b> وقت استضافتك ينفد قريباً!\n"
+    elif total_remaining == 0 and bots:
+        text += f"\n🚨 <b>انتهى وقت الاستضافة!</b> أضف وقتاً لاستمرار العمل\n"
+    
     
     if edit:
         await target.edit_message_text(
@@ -149,7 +172,7 @@ async def my_bots(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Databa
     if not bots:
         await query.edit_message_text(
             "📂 <b>لا توجد بوتات</b>\n"
-            f"{'─' * 35}\n\n"
+            f"────────────────────────────\n\n"
             "لم تضف أي بوتات بعد.\n"
             "ابدأ بإضافة بوتك الأول الآن! 🚀",
             reply_markup=InlineKeyboardMarkup([
@@ -169,13 +192,14 @@ async def my_bots(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Databa
     total_time = sum(b[4] for b in bots if b[4])
     
     text = (
+        f"════════════════════════════\n"
         f"📂 <b>بوتاتي ({len(bots)})</b>\n"
-        f"{'═' * 40}\n\n"
-        f"🟢 نشطة: <b>{running_count}</b>  |  "
-        f"🔴 متوقفة: <b>{stopped_count}</b>  |  "
+        f"════════════════════════════\n\n"
+        f"🟢 نشطة: <b>{running_count}</b>  │  "
+        f"🔴 متوقفة: <b>{stopped_count}</b>  │  "
         f"😴 سكون: <b>{sleep_count}</b>\n"
         f"⏱️ إجمالي الوقت المتبقي: <b>{seconds_to_human(total_time)}</b>\n"
-        f"{'─' * 40}\n\n"
+        f"{'─'*28}\n\n"
     )
     
     keyboard = []
@@ -252,8 +276,9 @@ async def _show_manage_bot(query, bot, db):
     status_icon, status_text = format_bot_status(status, sleep_mode)
     
     text = (
+        f"════════════════════════════\n"
         f"🤖 <b>{safe_html_escape(name)}</b>\n"
-        f"{'═' * 40}\n\n"
+        f"════════════════════════════\n\n"
         f"🆔 <b>المعرّف:</b> <code>{bot_id}</code>\n"
         f"📡 <b>الحالة:</b> {status_icon} {status_text}\n\n"
         f"⏱️ <b>الوقت المتبقي:</b>\n"
@@ -290,6 +315,10 @@ async def _show_manage_bot(query, bot, db):
     if sleep_mode:
         keyboard.append([InlineKeyboardButton("✨ إيقاظ (استرجاع مجاني)", callback_data=f"recover_{bot_id}")])
     
+    # تحذير انتهاء الوقت
+    if 0 < remaining < 3600:
+        keyboard.append([InlineKeyboardButton("⚠️ الوقت ينفد! اشحن الآن", callback_data=f"hosting_purchase_{bot_id}")])
+    
     # أزرار الإدارة
     keyboard.extend([
         [
@@ -302,10 +331,11 @@ async def _show_manage_bot(query, bot, db):
         ],
         [
             InlineKeyboardButton("⚙️ إعدادات", callback_data=f"bot_settings_{bot_id}"),
-            InlineKeyboardButton("📤 نسخ احتياطي", callback_data=f"backup_{bot_id}")
+            InlineKeyboardButton("💾 نسخ احتياطي", callback_data=f"backup_{bot_id}")
         ],
+        [InlineKeyboardButton("⭐ شراء وقت إضافي", callback_data=f"hosting_purchase_{bot_id}")],
         [InlineKeyboardButton("🗑️ حذف البوت", callback_data=f"confirm_del_{bot_id}")],
-        [InlineKeyboardButton("🔙 رجوع", callback_data="my_bots")]
+        [InlineKeyboardButton("🔙 رجوع لبوتاتي", callback_data="my_bots")]
     ])
     
     await query.edit_message_text(
@@ -313,6 +343,7 @@ async def _show_manage_bot(query, bot, db):
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode="HTML"
     )
+
 
 # ============================================================================
 # تشغيل وإيقاف البوتات
@@ -331,15 +362,30 @@ async def start_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE, d
         
         success, msg = await pm.start_bot(bot_id, context.application)
         
-        await query.message.reply_text(msg, parse_mode="HTML")
+        icon = "✅" if success else "❌"
+        await query.message.reply_text(
+            f"════════════════════════════\n"
+            f"{icon} <b>{'تم تشغيل البوت' if success else 'فشل التشغيل'}</b>\n"
+            f"════════════════════════════\n\n"
+            f"{msg}",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 إدارة البوت", callback_data=f"manage_{bot_id}")]
+            ])
+        )
         
-        # إعادة عرض واجهة إدارة البوت
         bot = db.get_bot(bot_id)
-        if bot:
+        if bot and success:
             await _show_manage_bot(query, bot, db)
     except Exception as e:
         logger.error(f"خطأ في بدء البوت: {e}")
-        await query.message.reply_text(f"❌ حدث خطأ: {str(e)[:50]}")
+        await query.message.reply_text(
+            f"════════════════════════════\n"
+            f"❌ <b>خطأ في التشغيل</b>\n"
+            f"════════════════════════════\n\n"
+            f"{str(e)[:100]}",
+            parse_mode="HTML"
+        )
 
 async def stop_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database, pm):
     """إيقاف البوت"""
@@ -352,22 +398,33 @@ async def stop_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE, db
             await query.answer("❌ خطأ في البيانات", show_alert=True)
             return
         
+        bot = db.get_bot(bot_id)
+        bot_name = bot[3] if bot else f"البوت #{bot_id}"
         pm.stop_bot(bot_id)
         
-        await query.message.reply_text("✅ تم إيقاف البوت بنجاح", parse_mode="HTML")
+        await query.message.reply_text(
+            f"════════════════════════════\n"
+            f"⏹️ <b>تم إيقاف البوت</b>\n"
+            f"════════════════════════════\n\n"
+            f"🤖 {safe_html_escape(bot_name)}",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("▶️ تشغيل مجدداً", callback_data=f"start_{bot_id}")],
+                [InlineKeyboardButton("🔙 إدارة البوت", callback_data=f"manage_{bot_id}")]
+            ])
+        )
         
-        # إعادة عرض واجهة إدارة البوت
-        bot = db.get_bot(bot_id)
         if bot:
             await _show_manage_bot(query, bot, db)
     except Exception as e:
         logger.error(f"خطأ في إيقاف البوت: {e}")
         await query.message.reply_text(f"❌ حدث خطأ: {str(e)[:50]}")
 
+
 async def restart_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database, pm):
     """إعادة تشغيل البوت"""
     query = update.callback_query
-    await query.answer("⏳ جاري إعادة تشغيل البوت...")
+    await query.answer("⏳ جاري إعادة التشغيل...")
     
     try:
         bot_id = get_bot_id_from_callback(query.data)
@@ -376,19 +433,30 @@ async def restart_bot_action(update: Update, context: ContextTypes.DEFAULT_TYPE,
             return
         
         success, msg = await pm.restart_bot(bot_id, context.application)
-        
-        if success:
-            await query.message.reply_text("✅ تم إعادة تشغيل البوت بنجاح", parse_mode="HTML")
-        else:
-            await query.message.reply_text(msg, parse_mode="HTML")
-        
-        # إعادة عرض واجهة إدارة البوت
         bot = db.get_bot(bot_id)
+        bot_name = bot[3] if bot else f"البوت #{bot_id}"
+        
+        icon = "✅" if success else "❌"
+        status_text = "تمت إعادة التشغيل" if success else "فشلت إعادة التشغيل"
+
+        await query.message.reply_text(
+            f"════════════════════════════\n"
+            f"{icon} <b>{status_text}</b>\n"
+            f"════════════════════════════\n\n"
+            f"🤖 {safe_html_escape(bot_name)}\n"
+            f"{msg if not success else ''}",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 إدارة البوت", callback_data=f"manage_{bot_id}")]
+            ])
+        )
+        
         if bot:
             await _show_manage_bot(query, bot, db)
     except Exception as e:
         logger.error(f"خطأ في إعادة تشغيل البوت: {e}")
         await query.message.reply_text(f"❌ حدث خطأ: {str(e)[:50]}")
+
 
 # ============================================================================
 # إدارة الوقت
@@ -425,8 +493,9 @@ async def _show_time_management(query, bot, db):
     time_percent = (remaining / total * 100) if total > 0 else 0
     
     text = (
+        f"════════════════════════════\n"
         f"⏱️ <b>إدارة الوقت</b>\n"
-        f"{'═' * 40}\n\n"
+        f"════════════════════════════\n\n"
         f"📦 <b>الخطة:</b> {plan_config['emoji']} {plan_config['name']}\n\n"
         f"⏳ <b>الوقت المتبقي:</b>\n"
         f"   {seconds_to_human(remaining)}\n"
@@ -515,10 +584,11 @@ async def add_time_action(update: Update, context: ContextTypes.DEFAULT_TYPE, db
         )
         
         await query.message.reply_text(
-            f"✅ <b>تم إضافة الوقت</b>\n"
-            f"{'─' * 30}\n\n"
-            f"⏱️ تمت إضافة: <b>{seconds_to_human(seconds)}</b>\n"
-            f"⏱️ الوقت الجديد: <b>{seconds_to_human(new_remaining)}</b>",
+            f"════════════════════════════\n"
+            f"✅ <b>تم إضافة الوقت!</b>\n"
+            f"════════════════════════════\n\n"
+            f"➕ المضاف: <b>{seconds_to_human(seconds)}</b>\n"
+            f"⏱️ الجديد: <b>{seconds_to_human(new_remaining)}</b>",
             parse_mode="HTML"
         )
         
@@ -574,17 +644,17 @@ async def recover_bot(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Da
         success, msg = await pm.start_bot(bot_id, context.application)
         
         result_text = (
-            "✅ <b>الاسترجاع نجح!</b>\n"
-            f"{'─' * 30}\n\n"
-            "📝 <b>التفاصيل:</b>\n"
-            "   ✓ تمت إضافة ساعتين\n"
-            "   ✓ تم إيقاظ البوت من السكون\n"
+            f"════════════════════════════\n"
+            f"✨ <b>الاسترجاع اليومي!</b>\n"
+            f"════════════════════════════\n\n"
+            f"✅ تمت إضافة ساعتين\n"
+            f"✅ تم إيقاظ البوت من السكون\n"
         )
         
         if success:
-            result_text += "   ✓ البوت يعمل الآن\n"
+            result_text += "✅ البوت يعمل الآن 🟢\n"
         else:
-            result_text += f"   ⚠️ {msg}\n"
+            result_text += f"⚠️ {msg}\n"
         
         result_text += "\n⏰ الاسترجاع التالي متاح غداً"
         
@@ -604,7 +674,7 @@ async def recover_bot(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Da
 # ============================================================================
 
 async def view_logs(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database):
-    """عرض السجلات"""
+    """عرض السجلات المحسّنة"""
     query = update.callback_query
     await query.answer()
     
@@ -613,40 +683,88 @@ async def view_logs(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Data
         await query.answer("❌ خطأ", show_alert=True)
         return
     
-    logs = db.get_bot_logs(bot_id, limit=25)
+    bot = db.get_bot(bot_id)
+    bot_name = bot[3] if bot else f"البوت #{bot_id}"
+    logs = db.get_bot_logs(bot_id, limit=20)
     
-    text = f"📜 <b>سجلات البوت #{bot_id}</b>\n{'═' * 40}\n\n"
+    error_count = sum(1 for l in logs if l[0] in ('ERROR', 'CRITICAL'))
+    warn_count  = sum(1 for l in logs if l[0] == 'WARNING')
+    
+    text = (
+        f"════════════════════════════\n"
+        f"════════════════════════════\n"
+        f"📜 <b>سجلات البوت</b>\n"
+        f"════════════════════════════\n\n"
+        f"🤖 <b>{safe_html_escape(bot_name)}</b>\n"
+        f"📊 الأخطاء: <b>{error_count}</b> | التحذيرات: <b>{warn_count}</b>\n\n"
+        f"{'─'*28}\n\n"
+    )
     
     if not logs:
-        text += "📭 لا توجد أحداث مسجلة بعد"
+        text += "📭 لا توجد سجلات بعد\n\n💡 ستظهر السجلات بعد تشغيل البوت"
     else:
+        icon_map = {'INFO': 'ℹ️', 'WARNING': '⚠️', 'ERROR': '❌', 'CRITICAL': '🔴', 'DEBUG': '🔍'}
         for event_type, message, timestamp in logs:
-            icon = {
-                'INFO': 'ℹ️',
-                'WARNING': '⚠️',
-                'ERROR': '❌',
-                'CRITICAL': '🔴',
-                'DEBUG': '🔍'
-            }.get(event_type, '📝')
-            
+            icon = icon_map.get(event_type, '📝')
             date_str = timestamp[:16] if len(timestamp) > 16 else timestamp
-            
             text += f"{icon} <code>{date_str}</code>\n"
-            text += f"   {safe_html_escape(message[:70])}\n\n"
+            text += f"   {safe_html_escape(message[:80])}\n\n"
     
     keyboard = [
         [
             InlineKeyboardButton("🔄 تحديث", callback_data=f"logs_{bot_id}"),
-            InlineKeyboardButton("🗑️ مسح السجلات", callback_data=f"clear_logs_{bot_id}")
+            InlineKeyboardButton("📥 تحميل الكل", callback_data=f"download_logs_{bot_id}")
         ],
+        [InlineKeyboardButton("🗑️ مسح السجلات", callback_data=f"clear_logs_{bot_id}")],
         [InlineKeyboardButton("🔙 رجوع", callback_data=f"manage_{bot_id}")]
     ]
     
-    await query.edit_message_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
+
+
+async def download_logs(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database):
+    """تحميل ملف سجلات كامل"""
+    query = update.callback_query
+    await query.answer("⏳ جاري إعداد الملف...")
+    
+    bot_id = get_bot_id_from_callback(query.data)
+    if not bot_id:
+        return
+    
+    bot = db.get_bot(bot_id)
+    bot_name = bot[3] if bot else f"bot_{bot_id}"
+    logs = db.get_bot_logs(bot_id, limit=1000)
+    
+    import tempfile, os
+    from io import BytesIO
+    
+    lines = [f"=== سجلات {bot_name} === تاريخ التصدير: {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"]
+    icon_map = {'INFO': '[INFO]', 'WARNING': '[WARN]', 'ERROR': '[ERROR]', 'CRITICAL': '[CRIT]', 'DEBUG': '[DEBUG]'}
+    for event_type, message, timestamp in logs:
+        tag = icon_map.get(event_type, '[LOG]')
+        lines.append(f"{timestamp} {tag} {message}\n")
+    
+    if not lines[1:]:
+        lines.append("لا توجد سجلات\n")
+    
+    content = "".join(lines).encode('utf-8')
+    file_obj = BytesIO(content)
+    file_obj.name = f"logs_{bot_name}_{bot_id}.txt"
+    
+    from telegram import InputFile
+    await context.bot.send_document(
+        chat_id=update.effective_user.id,
+        document=InputFile(file_obj, filename=file_obj.name),
+        caption=(
+            f"════════════════════════════\n"
+            f"📥 <b>ملف سجلات البوت</b>\n"
+            f"════════════════════════════\n\n"
+            f"🤖 {safe_html_escape(bot_name)}\n"
+            f"📊 {len(logs)} سجل"
+        ),
         parse_mode="HTML"
     )
+    await query.answer("✅ تم إرسال الملف")
 
 async def bot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database):
     """إحصائيات البوت"""
@@ -681,8 +799,9 @@ async def bot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Data
     stability_score = max(0, 100 - (error_count * 5) - (critical_count * 10) - (restart_count * 3))
     
     text = (
+        f"════════════════════════════\n"
         f"📊 <b>إحصائيات البوت</b>\n"
-        f"{'═' * 40}\n\n"
+        f"════════════════════════════\n\n"
         f"📝 <b>المعلومات الأساسية:</b>\n"
         f"   • الاسم: <code>{safe_html_escape(bot[3])}</code>\n"
         f"   • المعرّف: <code>{bot_id}</code>\n"
@@ -741,8 +860,9 @@ async def my_plan(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Databa
     bots_display = "∞" if plan_config['max_bots'] >= 50 else str(plan_config['max_bots'])
     
     text = (
+        f"════════════════════════════\n"
         f"💎 <b>خطتي: {plan_config['emoji']} {plan_config['name']}</b>\n"
-        f"{'═' * 45}\n\n"
+        f"════════════════════════════\n\n"
         f"📊 <b>حدود الخطة:</b>\n"
         f"   ⏱️ وقت الاستضافة: <b>{time_display}</b>\n"
         f"   🤖 البوتات: <b>{len(bots)}/{bots_display}</b>\n"
@@ -771,10 +891,13 @@ async def my_plan(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Databa
     keyboard = []
     
     if plan != 'supreme':
-        keyboard.append([InlineKeyboardButton("📤 طلب ترقية", callback_data="request_upgrade")])
+        keyboard.append([InlineKeyboardButton("⬆️ ترقية الخطة", callback_data="plans_menu")])
+        keyboard.append([InlineKeyboardButton("📤 طلب ترقية يدوي", callback_data="request_upgrade")])
     
     keyboard.extend([
-        [InlineKeyboardButton("📜 سجل الطلبات", callback_data="upgrade_history")],
+        [InlineKeyboardButton("🛒 سجل المشتريات", callback_data="purchase_history"),
+         InlineKeyboardButton("📜 سجل الطلبات", callback_data="upgrade_history")],
+        [InlineKeyboardButton("💰 استرجاع مبلغ", callback_data="refund_request")],
         [InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]
     ])
     
@@ -792,7 +915,7 @@ async def upgrade_history(update: Update, context: ContextTypes.DEFAULT_TYPE, db
     user_id = update.effective_user.id
     history = db.get_user_upgrade_history(user_id)
     
-    text = f"📜 <b>سجل طلبات الترقية</b>\n{'═' * 40}\n\n"
+    text = f"📜 <b>سجل طلبات الترقية</b>\n════════════════════════════\n\n"
     
     if not history:
         text += "📭 لا توجد طلبات سابقة"
@@ -838,7 +961,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = (
         "ℹ️ <b>مساعدة NeuroHost V8</b>\n"
-        f"{'═' * 40}\n\n"
+        f"════════════════════════════\n\n"
         "<b>🚀 البدء السريع:</b>\n"
         "1️⃣ أضف بوت جديد (ملف .py أو ZIP)\n"
         "2️⃣ سيتم اكتشاف التوكن تلقائياً\n"
@@ -865,7 +988,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     keyboard = [
         [InlineKeyboardButton("📚 دليل مفصل", callback_data="detailed_guide")],
-        [InlineKeyboardButton("❓ الأسئلة الشائعة", callback_data="faq")],
+        [InlineKeyboardButton("❓ الأسئلة الشائعة", callback_data="faq"),
+         InlineKeyboardButton("🗂️ الأسئلة بالفئات", callback_data="faq_interactive_menu")],
+        [InlineKeyboardButton("💎 الخطط والأسعار", callback_data="plans_menu")],
         [InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]
     ]
     
@@ -889,7 +1014,7 @@ async def detailed_guide(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = (
         "📚 <b>الدليل المفصل</b>\n"
-        f"{'═' * 40}\n\n"
+        f"════════════════════════════\n\n"
         "<b>🤖 إضافة بوت:</b>\n"
         "1. اضغط على 'إضافة بوت'\n"
         "2. أرسل ملف .py أو .zip\n"
@@ -928,7 +1053,7 @@ async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = (
         "❓ <b>الأسئلة الشائعة</b>\n"
-        f"{'═' * 40}\n\n"
+        f"════════════════════════════\n\n"
         "<b>س: كيف أضيف بوت؟</b>\n"
         "ج: اضغط 'إضافة بوت' وأرسل ملف .py أو .zip\n\n"
         "<b>س: لماذا دخل بوتي السكون؟</b>\n"
@@ -971,8 +1096,9 @@ async def user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Dat
     joined_date = user_data[9][:10] if user_data and len(user_data) > 9 and user_data[9] else "غير معروف"
     
     text = (
+        f"════════════════════════════\n"
         f"📊 <b>إحصائياتي</b>\n"
-        f"{'═' * 40}\n\n"
+        f"════════════════════════════\n\n"
         f"👤 <b>معلومات الحساب:</b>\n"
         f"   • المعرّف: <code>{user_id}</code>\n"
         f"   • الخطة: {plan_config['emoji']} {plan_config['name']}\n"
@@ -1015,7 +1141,7 @@ async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Datab
     
     text = (
         f"⚙️ <b>الإعدادات</b>\n"
-        f"{'═' * 40}\n\n"
+        f"════════════════════════════\n\n"
         f"🔔 <b>الإشعارات:</b>\n"
         f"   الحالة: {'✅ مفعّلة' if notifications_enabled else '❌ معطّلة'}\n\n"
         f"🌐 <b>اللغة:</b> العربية 🇸🇦\n\n"
@@ -1026,6 +1152,7 @@ async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Datab
     
     keyboard = [
         [InlineKeyboardButton(notif_text, callback_data="toggle_notifications")],
+        [InlineKeyboardButton("📢 معاينة الإشعارات الذكية", callback_data="smart_notifications_preview")],
         [InlineKeyboardButton("🗑️ حذف حسابي", callback_data="delete_account_confirm")],
         [InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]
     ]
@@ -1058,7 +1185,7 @@ async def delete_account_confirm(update: Update, context: ContextTypes.DEFAULT_T
     
     text = (
         f"⚠️ <b>تأكيد حذف الحساب</b>\n"
-        f"{'═' * 40}\n\n"
+        f"════════════════════════════\n\n"
         f"❗ <b>تحذير:</b>\n"
         f"• سيتم حذف جميع بوتاتك\n"
         f"• سيتم حذف جميع ملفاتك\n"

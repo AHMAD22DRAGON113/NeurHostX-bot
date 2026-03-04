@@ -1,99 +1,174 @@
 # ============================================================================
-# إعدادات البوت - NeuroHost V8 Enhanced
+# إعدادات البوت - NeuroHost V9.2
 # ============================================================================
 
 import os
+import json
 from enum import Enum
+from pathlib import Path
 
 # ═══════════════════════════════════════════════════════════════════════════
-# الإعدادات الأساسية
+# 🔑 بيانات الاعتماد الأساسية (ملء هذه الحقول)
 # ═══════════════════════════════════════════════════════════════════════════
 
-# التوكن والمعرفات
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0")) if os.getenv("ADMIN_ID") else 0
-DEVELOPER_USERNAME = os.getenv("DEVELOPER_USERNAME", "support")
+# توكن البوت من البوت فاذر (@BotFather)
+# مثال: "123456789:ABCdefGHIjklMNOpqrsTUVwxyz..."
+TELEGRAM_BOT_TOKEN = ""
 
+# معرف الأدمن (رقمك الشخصي في تيليجرام)
+# يمكنك الحصول عليه من @userinfobot
+ADMIN_ID = 0
+
+# اسم المطور (اليوزرنيم الخاص بك)
+# مثال: "@yourusername"
+DEVELOPER_USERNAME = ""
+
+# ═══════════════════════════════════════════════════════════════════════════
 # معلومات الإصدار
-VERSION = "8.5.0"
-VERSION_NAME = "Ultimate Edition"
-RELEASE_DATE = "فبراير 2026"
+# ═══════════════════════════════════════════════════════════════════════════
+
+VERSION = "9.2.0"
+VERSION_NAME = "Final Release"
+RELEASE_DATE = "مارس 2026"
+
+def _load_credentials_from_file():
+    """تحميل بيانات الاعتماد من credentials.json أو متغيرات البيئة"""
+    global TELEGRAM_BOT_TOKEN, ADMIN_ID, DEVELOPER_USERNAME
+    
+    # محاولة قراءة من credentials.json
+    creds_file = Path(__file__).parent / "credentials.json"
+    if creds_file.exists():
+        try:
+            with open(creds_file, 'r', encoding='utf-8') as f:
+                creds = json.load(f)
+                TELEGRAM_BOT_TOKEN = creds.get("TELEGRAM_BOT_TOKEN") or TELEGRAM_BOT_TOKEN
+                ADMIN_ID = creds.get("ADMIN_ID") or ADMIN_ID
+                DEVELOPER_USERNAME = creds.get("DEVELOPER_USERNAME") or DEVELOPER_USERNAME
+        except Exception as e:
+            print(f"⚠️ خطأ في قراءة credentials.json: {e}")
+    
+    # استخدام متغيرات البيئة كخيار بديل
+    TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", TELEGRAM_BOT_TOKEN)
+    if os.getenv("ADMIN_ID"):
+        try:
+            ADMIN_ID = int(os.getenv("ADMIN_ID"))
+        except ValueError:
+            pass
+    DEVELOPER_USERNAME = os.getenv("DEVELOPER_USERNAME", DEVELOPER_USERNAME)
+
+# تحميل بيانات الاعتماد من الملفات عند استيراد الملف
+_load_credentials_from_file()
 
 # التحقق من بيانات اعتماد مهمة عند البدء
 def validate_credentials():
     """التحقق من بيانات الاعتماد عند بدء التطبيق"""
-    if not TOKEN or TOKEN == "":
-        raise ValueError("❌ TELEGRAM_BOT_TOKEN غير محدد في متغيرات البيئة")
+    if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "":
+        raise ValueError("❌ TELEGRAM_BOT_TOKEN غير محدد في config.py أو credentials.json")
     if ADMIN_ID == 0:
-        raise ValueError("❌ ADMIN_ID غير محدد في متغيرات البيئة")
+        raise ValueError("❌ ADMIN_ID غير محدد في config.py أو credentials.json")
+
 
 # ═══════════════════════════════════════════════════════════════════════════
-# إعدادات الملفات والمجلدات
+# 📁 إعدادات الملفات والمجلدات
 # ═══════════════════════════════════════════════════════════════════════════
 
-DB_FILE = "neurohost_v8.db"
-BOTS_DIR = "bots"
-ERROR_LOG_FILE = "neurohost_errors.log"
-LOG_DIR = "logs"
-BACKUP_DIR = "backups"
+# اسم قاعدة البيانات
+DATABASE_FILE = "neurohost_v9.db"
 
-# حدود الملفات (MB)
-MAX_FILE_SIZE_MB = 50
-MAX_EDIT_FILE_SIZE_MB = 5
-MAX_ZIP_SIZE_MB = 100
+# مجلدات المشروع
+BOTS_DIRECTORY = "bots"                    # مجلد البوتات
+LOGS_DIRECTORY = "logs"                    # مجلد السجلات
+BACKUPS_DIRECTORY = "backups"              # مجلد النسخ الاحتياطية
+TEMP_DIRECTORY = "temp"                    # مجلد الملفات المؤقتة
+
+# ملفات السجل
+ERROR_LOG_FILE = "errors.log"
+ACTIVITY_LOG_FILE = "activity.log"
+
+# حدود حجم الملفات (بالميجابايت)
+MAX_FILE_UPLOAD_SIZE_MB = 50               # أقصى حجم للملف المرفوع
+MAX_FILE_EDIT_SIZE_MB = 5                  # أقصى حجم للملف القابل للتعديل
+MAX_ZIP_SIZE_MB = 100                      # أقصى حجم لملف ZIP
+
 
 # ═══════════════════════════════════════════════════════════════════════════
-# الأدوار والصلاحيات
+# 👥 الأدوار والصلاحيات
 # ═══════════════════════════════════════════════════════════════════════════
 
 class UserRole(Enum):
-    USER = "user"
-    MODERATOR = "moderator"
-    PREMIUM = "premium"
-    ADMIN = "admin"
+    """أدوار المستخدمين المختلفة"""
+    USER = "user"              # مستخدم عادي
+    MODERATOR = "moderator"    # مشرف
+    PREMIUM = "premium"        # مستخدم متقدم
+    ADMIN = "admin"            # مسؤول
 
 class UserStatus(Enum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    BLOCKED = "blocked"
+    """حالات المستخدم"""
+    PENDING = "pending"        # في الانتظار
+    APPROVED = "approved"      # موافق عليه
+    BLOCKED = "blocked"        # محظور
+
 
 # ═══════════════════════════════════════════════════════════════════════════
-# نظام الخطط المتقدم
+# 📊 نظام الخطط والإشتراكات
 # ═══════════════════════════════════════════════════════════════════════════
 
 PLANS = {
     'free': {
-        'time': 86400,                # 24 ساعة
-        'power': 30.0,
-        'max_bots': 2,
         'name': 'مجاني',
-        'cpu_limit': 50,
-        'mem_limit': 256,
         'emoji': '🔵',
         'price': 'مجاني',
         'priority': 1,
+        
+        # حدود الموارد
+        'max_bots': 2,
+        'max_power': 30.0,
+        'cpu_limit': 50,
+        'memory_limit_mb': 256,
+        'max_file_size_mb': 10,
+        
+        # الوقت والمدة
+        'validity_days': 1,           # صالح لـ 24 ساعة
+        'validity_seconds': 86400,
+        'daily_restart_limit': 5,
+        
+        # الميزات
+        'backup_enabled': False,
+        'support_level': 'none',
+        'analytics_basic': True,
+        
         'features': [
             'بوتان كحد أقصى',
             'وقت استضافة 24 ساعة',
             'استرجاع يومي مجاني',
             'مدير ملفات أساسي'
-        ],
-        'limits': {
-            'daily_restarts': 5,
-            'max_file_size': 10,
-            'backup_enabled': False
-        }
+        ]
     },
+    
     'pro': {
-        'time': 604800,               # 7 أيام
-        'power': 60.0,
-        'max_bots': 5,
         'name': 'احترافي',
-        'cpu_limit': 80,
-        'mem_limit': 512,
         'emoji': '🟢',
         'price': '$10/شهر',
         'priority': 2,
+        
+        # حدود الموارد
+        'max_bots': 5,
+        'max_power': 60.0,
+        'cpu_limit': 80,
+        'memory_limit_mb': 512,
+        'max_file_size_mb': 30,
+        
+        # الوقت والمدة
+        'validity_days': 7,            # صالح لـ 7 أيام
+        'validity_seconds': 604800,
+        'daily_restart_limit': 15,
+        
+        # الميزات
+        'backup_enabled': True,
+        'support_level': 'basic',
+        'analytics_basic': True,
+        'analytics_advanced': False,
+        
         'features': [
             '5 بوتات كحد أقصى',
             'وقت استضافة أسبوع',
@@ -101,23 +176,33 @@ PLANS = {
             'مدير ملفات متقدم',
             'دعم فني أساسي',
             'نسخ احتياطي يومي'
-        ],
-        'limits': {
-            'daily_restarts': 15,
-            'max_file_size': 30,
-            'backup_enabled': True
-        }
+        ]
     },
+    
     'ultra': {
-        'time': 2592000,              # 30 يوم
-        'power': 100.0,
-        'max_bots': 10,
         'name': 'فائق',
-        'cpu_limit': 100,
-        'mem_limit': 1024,
         'emoji': '🟣',
         'price': '$25/شهر',
         'priority': 3,
+        
+        # حدود الموارد
+        'max_bots': 10,
+        'max_power': 100.0,
+        'cpu_limit': 100,
+        'memory_limit_mb': 1024,
+        'max_file_size_mb': 50,
+        
+        # الوقت والمدة
+        'validity_days': 30,           # صالح لـ 30 يوم
+        'validity_seconds': 2592000,
+        'daily_restart_limit': 50,
+        
+        # الميزات
+        'backup_enabled': True,
+        'support_level': 'advanced',
+        'analytics_basic': True,
+        'analytics_advanced': True,
+        
         'features': [
             '10 بوتات كحد أقصى',
             'وقت استضافة شهر كامل',
@@ -125,129 +210,220 @@ PLANS = {
             'مدير ملفات كامل',
             'دعم فني متقدم',
             'نسخ احتياطي تلقائي',
-            'أولوية عالية في التنفيذ',
+            'أولوية عالية',
             'إحصائيات متقدمة'
-        ],
-        'limits': {
-            'daily_restarts': 50,
-            'max_file_size': 50,
-            'backup_enabled': True
-        }
+        ]
     },
+    
     'supreme': {
-        'time': 999999999,            # غير محدود
-        'power': 150.0,
-        'max_bots': 100,
         'name': 'أسطوري',
-        'cpu_limit': 100,
-        'mem_limit': 2048,
         'emoji': '👑',
         'price': 'حصري',
         'priority': 4,
+        
+        # حدود الموارد
+        'max_bots': 100,
+        'max_power': 150.0,
+        'cpu_limit': 100,
+        'memory_limit_mb': 2048,
+        'max_file_size_mb': 100,
+        
+        # الوقت والمدة
+        'validity_days': 365,          # صالح لـ سنة
+        'validity_seconds': 999999999,
+        'daily_restart_limit': -1,     # غير محدود
+        
+        # الميزات
+        'backup_enabled': True,
+        'support_level': 'vip',
+        'analytics_basic': True,
+        'analytics_advanced': True,
+        
         'features': [
             'بوتات غير محدودة',
             'وقت تشغيل لا نهائي',
-            'موارد حصرية للخادم',
-            'دعم VIP على مدار الساعة',
+            'موارد حصرية',
+            'دعم VIP 24/7',
             'أولوية قصوى',
             'نسخ احتياطي فوري',
             'إحصائيات حية',
             'تحكم كامل في الموارد',
             'API خاص'
-        ],
-        'limits': {
-            'daily_restarts': -1,     # غير محدود
-            'max_file_size': 100,
-            'backup_enabled': True
-        }
+        ]
     }
 }
 
+
 # ═══════════════════════════════════════════════════════════════════════════
-# حالات المحادثة
+# 💬 حالات المحادثة والتفاعلات
 # ═══════════════════════════════════════════════════════════════════════════
 
 CONVERSATION_STATES = {
-    'WAIT_FILE': 0,
-    'WAIT_TOKEN': 1,
-    'WAIT_FEEDBACK': 2,
-    'WAIT_GITHUB': 3,
-    'WAIT_FILE_ACTION': 4,
-    'WAIT_FILE_EDIT': 5,
-    'WAIT_BROADCAST': 6,
-    'WAIT_USER_ID': 7,
-    'WAIT_PLAN_SELECTION': 8,
-    'WAIT_RENAME': 9
+    'WAIT_FILE': 0,                # انتظار ملف
+    'WAIT_TOKEN': 1,               # انتظار توكن
+    'WAIT_FEEDBACK': 2,            # انتظار تغذية راجعة
+    'WAIT_GITHUB': 3,              # انتظار رابط GitHub
+    'WAIT_FILE_ACTION': 4,         # انتظار إجراء على الملف
+    'WAIT_FILE_EDIT': 5,           # انتظار تعديل الملف
+    'WAIT_BROADCAST': 6,           # انتظار رسالة البث
+    'WAIT_USER_ID': 7,             # انتظار معرف المستخدم
+    'WAIT_PLAN_SELECTION': 8,      # انتظار اختيار الخطة
+    'WAIT_RENAME': 9,              # انتظار إعادة تسمية
+    'WAIT_MAIN_FILE': 10,          # انتظار الملف الرئيسي
+    'WAIT_DESCRIPTION': 11,        # انتظار الوصف
+    'WAIT_MUTE_REASON': 12,        # انتظار سبب الكتم
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
-# إعدادات العمليات والمراقبة
+# ⚙️ إعدادات العمليات والمراقبة
 # ═══════════════════════════════════════════════════════════════════════════
 
-RESTART_COOLDOWN = 30               # ثواني بين إعادة التشغيل
-RESTART_TIME_COST = 300             # تكلفة إعادة التشغيل (ثواني)
-MAX_RESTARTS = 5                    # الحد الأقصى لإعادة التشغيل
-MONITOR_CHECK_INTERVAL = 10         # فترة المراقبة (ثواني)
-WARNING_COOLDOWN = 300              # فترة بين التحذيرات (ثواني)
-RECOVERY_TIME = 7200                # وقت الاسترجاع اليومي (ساعتين)
+# تأخير وحدود إعادة التشغيل
+PROCESS_RESTART_COOLDOWN_SECONDS = 30      # الانتظار بين إعادة التشغيل
+RESTART_TIME_COST_SECONDS = 300            # تكلفة إعادة التشغيل بالثواني
+MAX_DAILY_RESTARTS = 5                     # الحد الأقصى لإعادة التشغيل يومياً
 
-# إعدادات الأداء
-MAX_CONCURRENT_BOTS = 50            # الحد الأقصى للبوتات المتزامنة
-PROCESS_TIMEOUT = 300               # مهلة العملية (ثواني)
-STARTUP_TIMEOUT = 120               # مهلة بدء التشغيل
+# فترات المراقبة والتحقق
+MONITOR_CHECK_INTERVAL_SECONDS = 10        # فترة فحص المراقبة
+WARNING_COOLDOWN_SECONDS = 300             # الانتظار بين التحذيرات
+DAILY_RECOVERY_TIME_SECONDS = 7200         # وقت الاسترجاع اليومي (ساعتين)
+
+# حدود الأداء والعمليات
+MAX_CONCURRENT_BOTS = 50                   # الحد الأقصى للبوتات المتزامنة
+PROCESS_TIMEOUT_SECONDS = 300              # مهلة انتظار العملية
+STARTUP_TIMEOUT_SECONDS = 120              # مهلة بدء التشغيل
+
 
 # ═══════════════════════════════════════════════════════════════════════════
-# الرسائل والنصوص
+# 💬 الرسائل والنصوص (يمكن تعديلها حسب الحاجة)
 # ═══════════════════════════════════════════════════════════════════════════
 
 MESSAGES = {
-    # أخطاء
-    'error_admin_only': '⛔ هذه الميزة متاحة للأدمن فقط',
-    'error_bot_not_found': '❌ البوت غير موجود أو تم حذفه',
-    'error_file_not_found': '❌ الملف غير موجود',
-    'error_unexpected': '❌ حدث خطأ غير متوقع. حاول مرة أخرى',
-    'error_permission': '⛔ ليس لديك صلاحية لهذا الإجراء',
-    'error_limit_reached': '⚠️ وصلت للحد الأقصى المسموح',
-    'error_invalid_token': '❌ التوكن غير صالح',
-    'error_token_exists': '⚠️ التوكن مستخدم بالفعل',
+    # ❌ الأخطاء
+    'error_admin_only': 
+        '⛔ هذه الميزة متاحة للأدمن فقط',
+    'error_bot_not_found': 
+        '❌ البوت غير موجود أو تم حذفه',
+    'error_file_not_found': 
+        '❌ الملف غير موجود',
+    'error_unexpected': 
+        '❌ حدث خطأ غير متوقع. حاول مرة أخرى',
+    'error_permission': 
+        '⛔ ليس لديك صلاحية لهذا الإجراء',
+    'error_limit_reached': 
+        '⚠️ وصلت للحد الأقصى المسموح',
+    'error_invalid_token': 
+        '❌ التوكن غير صالح',
+    'error_token_exists': 
+        '⚠️ التوكن مستخدم بالفعل',
 
-    # نجاح
-    'success_bot_started': '✅ تم بدء البوت بنجاح',
-    'success_bot_stopped': '✅ تم إيقاف البوت',
-    'success_bot_added': '✅ تم إضافة البوت بنجاح',
-    'success_bot_deleted': '✅ تم حذف البوت',
-    'success_file_uploaded': '✅ تم رفع الملف بنجاح',
-    'success_file_updated': '✅ تم تحديث الملف',
-    'success_time_added': '✅ تم إضافة الوقت',
-    'success_recovery': '✅ تم الاسترجاع بنجاح',
+    # ✅ النجاح
+    'success_bot_started': 
+        '✅ تم بدء البوت بنجاح',
+    'success_bot_stopped': 
+        '✅ تم إيقاف البوت',
+    'success_bot_added': 
+        '✅ تم إضافة البوت بنجاح',
+    'success_bot_deleted': 
+        '✅ تم حذف البوت',
+    'success_file_uploaded': 
+        '✅ تم رفع الملف بنجاح',
+    'success_file_updated': 
+        '✅ تم تحديث الملف',
+    'success_time_added': 
+        '✅ تم إضافة الوقت',
+    'success_recovery': 
+        '✅ تم الاسترجاع بنجاح',
 
-    # تحذيرات
-    'warning_low_time': '⚠️ الوقت المتبقي منخفض',
-    'warning_sleep_mode': '😴 البوت في وضع السكون',
-    'warning_restart_limit': '⚠️ تم الوصول لحد إعادة التشغيل'
+    # ⚠️ التحذيرات
+    'warning_low_time': 
+        '⚠️ الوقت المتبقي منخفض',
+    'warning_sleep_mode': 
+        '😴 البوت في وضع السكون',
+    'warning_restart_limit': 
+        '⚠️ تم الوصول لحد إعادة التشغيل'
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
-# إعدادات التصميم
+# 🎨 إعدادات التصميم والواجهة
 # ═══════════════════════════════════════════════════════════════════════════
 
 UI_CONFIG = {
-    'separator': '═' * 40,
-    'separator_light': '─' * 35,
-    'max_items_per_page': 10,
-    'max_filename_display': 15,
-    'max_log_entries': 25,
-    'bar_length': 10
+    'main_separator': '═' * 50,          # الفاصل الرئيسي
+    'light_separator': '─' * 40,         # فاصل خفيف
+    'max_items_per_page': 10,            # أقصى عدد عناصر في الصفحة
+    'max_filename_display': 15,          # أقصى طول لاسم الملف المعروض
+    'max_log_entries': 25,               # أقصى عدد سجلات
+    'progress_bar_length': 10,           # طول شريط التقدم
+    'emoji_success': '✅',
+    'emoji_error': '❌',
+    'emoji_warning': '⚠️',
+    'emoji_info': 'ℹ️'
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
-# إعدادات الأمان
+# 🔒 إعدادات الأمان
 # ═══════════════════════════════════════════════════════════════════════════
 
 SECURITY_CONFIG = {
-    'max_login_attempts': 5,
-    'session_timeout': 3600,
-    'rate_limit_per_minute': 30,
-    'blocked_extensions': ['.exe', '.bat', '.sh', '.dll'],
-    'allowed_extensions': ['.py', '.txt', '.json', '.yml', '.yaml', '.md', '.env', '.cfg']
+    # حدود تسجيل الدخول
+    'max_login_attempts': 5,             # أقصى محاولات دخول
+    'session_timeout_seconds': 3600,     # انتهاء الجلسة بعد ساعة
+    
+    # حدود المعدل
+    'rate_limit_per_minute': 30,         # عدد الطلبات المسموح بها في الدقيقة
+    
+    # الملفات المحظورة
+    'blocked_extensions': [
+        '.exe',      # ملفات تنفيذية Windows
+        '.bat',      # ملفات دفعية
+        '.sh',       # ملفات bash
+        '.dll',      # مكتبات ديناميكية
+        '.scr',      # حماقات الشاشة
+        '.vbs',      # VB Script
+    ],
+    
+    # الملفات المسموح بها
+    'allowed_extensions': [
+        '.py',       # Python
+        '.txt',      # نصوص عادية
+        '.json',     # JSON
+        '.yml',      # YAML
+        '.yaml',     # YAML
+        '.md',       # Markdown
+        '.env',      # متغيرات البيئة
+        '.cfg',      # ملفات التكوين
+        '.conf',     # ملفات التكوين
+        '.ini',      # INI files
+    ]
 }
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 📝ملاحظة مهمة: إرشادات الملء
+# ═══════════════════════════════════════════════════════════════════════════
+"""
+لملء الحقول المطلوبة أعلاه:
+
+1️⃣ TELEGRAM_BOT_TOKEN:
+   - انتقل إلى @BotFather على تيليجرام
+   - اكتب /newbot واتبع التعليمات
+   - انسخ النص "HTTP API" كاملاً
+
+2️⃣ ADMIN_ID:
+   - انتقل إلى @userinfobot على تيليجرام
+   - سيظهر رقم معرفك
+   - انسخ الرقم (بدون علامات)
+
+3️⃣ DEVELOPER_USERNAME:
+   - انتقل إلى إعدادات تيليجرام
+   - انسخ اسم المستخدم (بما فيه @)
+   - مثال: @yourusername
+
+يمكنك أيضاً إنشاء ملف credentials.json بدلاً من ملء الحقول مباشرة:
+{
+    "TELEGRAM_BOT_TOKEN": "your_token_here",
+    "ADMIN_ID": 123456789,
+    "DEVELOPER_USERNAME": "@your_username"
+}
+"""
+

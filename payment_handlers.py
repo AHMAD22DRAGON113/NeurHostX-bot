@@ -11,7 +11,7 @@ from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 
 from database import Database
-from unified_payment_system import UnifiedPaymentSystem, HostingPackage
+from payment_system import PaymentSystem, get_plan_emoji, get_plan_name
 from formatters import MessageBuilder
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ async def plans_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Dat
 
     # عرض الخطط
     for plan in ['pro', 'ultra', 'supreme']:
-        info = UnifiedPaymentSystem.get_plan_info(plan)
+        info = PaymentSystem.get_plan_info(plan)
         if not info:
             continue
 
@@ -75,7 +75,7 @@ async def select_plan_to_buy(update: Update, context: ContextTypes.DEFAULT_TYPE,
     user_id = query.from_user.id
 
     # الحصول على معلومات الخطة
-    plan_details = UnifiedPaymentSystem.format_plan_details(plan)
+    plan_details = PaymentSystem.format_plan_details(plan)
 
     # بناء الرسالة
     builder = MessageBuilder()
@@ -85,7 +85,7 @@ async def select_plan_to_buy(update: Update, context: ContextTypes.DEFAULT_TYPE,
     builder.add_empty_line()
 
     # عرض السعر
-    price, _ = UnifiedPaymentSystem.get_plan_price(plan)
+    price, _ = PaymentSystem.get_plan_price(plan)
     builder.add_text(f"<b>💳 السعر النهائي: {price} نجم</b>")
     builder.add_empty_line()
     builder.add_text("<i>بعد اختيار الدفع، ستظهر لك نافذة الدفع الآمنة</i>")
@@ -118,30 +118,27 @@ async def send_payment_invoice(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     # الحصول على معلومات الخطة
-    plan_info = UnifiedPaymentSystem.get_plan_info(plan)
-    price, currency = UnifiedPaymentSystem.get_plan_price(plan)
+    plan_info = PaymentSystem.get_plan_info(plan)
+    price, currency = PaymentSystem.get_plan_price(plan)
 
     # إنشاء بيانات الفاتورة
     title = f"شراء خطة {plan_info['name']}"
     description = f"شراء الخطة {plan_info['name']} - {plan_info['description']}"
-    payload = UnifiedPaymentSystem.get_invoice_payload(user_id, plan)
+    payload = PaymentSystem.get_invoice_payload(user_id, plan)
 
     # إنشاء قائمة الأسعار (نجوم تيليجرام يستخدم currency_code كـ 'XTR')
     prices = [LabeledPrice(label=f"خطة {plan_info['name']}", amount=price)]
 
     try:
-        # إرسال الفاتورة
+        # إرسال الفاتورة - Telegram Stars XTR
         await context.bot.send_invoice(
             chat_id=query.message.chat_id,
             title=title,
             description=description,
             payload=payload,
             provider_token="",  # نجوم تيليجرام لا تحتاج provider_token
-            currency="XTR",  # عملة نجوم تيليجرام
+            currency="XTR",    # عملة نجوم تيليجرام
             prices=prices,
-            is_flexible=False,
-            allow_user_chats=True,
-            allow_bot_chats=False
         )
 
         logger.info(f"✅ تم إرسال فاتورة للمستخدم {user_id} للخطة {plan}")
@@ -163,10 +160,10 @@ async def pre_checkout_callback(update: Update, context: ContextTypes.DEFAULT_TY
     user_id = query.from_user.id
 
     # فك تشفير payload
-    user_from_payload, plan = UnifiedPaymentSystem.parse_invoice_payload(query.payload)
+    user_from_payload, plan = PaymentSystem.parse_invoice_payload(query.payload)
 
     # التحقق من البيانات
-    is_valid, message = UnifiedPaymentSystem.verify_payment(
+    is_valid, message = PaymentSystem.verify_payment(
         query.id,
         user_from_payload,
         plan,
@@ -184,71 +181,123 @@ async def pre_checkout_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def successful_payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE, db: Database):
-    """معالج الدفع الناجح"""
+    """معالج الدفع الناجح - يعالج خطط الاشتراك وشراء وقت الاستضافة والتبرعات"""
     message = update.message
     user_id = message.from_user.id
     successful_payment = message.successful_payment
+    payload = successful_payment.invoice_payload
 
-    # فك تشفير payload
+    # ═══ معالجة التبرع ═══
+    if payload.startswith("donate_"):
+        parts = payload.split("_")
+        amount = parts[-1] if len(parts) >= 3 else "?"
+        await message.reply_text(
+            f"════════════════════════════\n"
+            f"💝 <b>شكراً جزيلاً على دعمك!</b>\n"
+            f"════════════════════════════\n\n"
+            f"⭐ المبلغ: <b>{amount} نجمة</b>\n\n"
+            f"❤️ مساهمتك تساعد في تطوير NeurHostX\n"
+            f"وتحسين الخدمات للجميع!",
+            parse_mode="HTML"
+        )
+        return
+
+    # ═══ معالجة شراء وقت استضافة ═══
+    if payload.startswith("hosting_"):
+        try:
+            # hosting_{user_id}_{bot_id}_{period}
+            parts = payload.split("_")
+            bot_id = int(parts[2])
+            period = parts[3]
+
+            from enhanced_handlers import HOSTING_PACKAGES
+            pkg = HOSTING_PACKAGES.get(period)
+            if not pkg:
+                raise ValueError(f"باقة غير معروفة: {period}")
+
+            days = pkg["days"]
+            seconds_to_add = days * 24 * 3600
+
+            bot = db.get_bot(bot_id)
+            if bot:
+                current_total = bot[10] or 0
+                current_remaining = bot[11] or 0
+                db.update_bot_resources(
+                    bot_id,
+                    total_seconds=current_total + seconds_to_add,
+                    remaining_seconds=current_remaining + seconds_to_add,
+                    warned_low=0
+                )
+                db.add_event_log(bot_id, "INFO", f"✅ تمت إضافة {days} يوم عبر الدفع")
+                bot_name = bot[3]
+            else:
+                bot_name = f"البوت #{bot_id}"
+
+            await message.reply_text(
+                f"════════════════════════════\n"
+                f"✅ <b>تم شراء وقت الاستضافة!</b>\n"
+                f"════════════════════════════\n\n"
+                f"🤖 البوت: <b>{bot_name}</b>\n"
+                f"📦 الباقة: <b>{pkg['label']}</b>\n"
+                f"⏱️ المدة المضافة: <b>{days} يوم</b>\n\n"
+                f"✨ تم تفعيل المدة فوراً",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🤖 إدارة البوت", callback_data=f"manage_{bot_id}")],
+                    [InlineKeyboardButton("🏠 القائمة الرئيسية", callback_data="main_menu")]
+                ])
+            )
+            return
+        except Exception as e:
+            logger.error(f"خطأ في معالجة دفع الاستضافة: {e}")
+            await message.reply_text(f"✅ تم استلام الدفع. تواصل مع الدعم لتطبيق الوقت.")
+            return
+
+    # ═══ معالجة خطط الاشتراك ═══
     try:
-        user_from_payload, plan = UnifiedPaymentSystem.parse_invoice_payload(successful_payment.invoice_payload)
+        user_from_payload, plan = PaymentSystem.parse_invoice_payload(payload)
     except (ValueError, TypeError, IndexError) as e:
-        logger.warning(f"⚠️ خطأ في معالجة payload: {e}")
-        await message.reply_text(
-            "❌ خطأ في معالجة الدفع. يرجى التواصل مع الدعم."
-        )
+        logger.warning(f"⚠️ خطأ في payload: {e}")
+        await message.reply_text("❌ خطأ في معالجة الدفع. يرجى التواصل مع الدعم.")
         return
 
-    # التحقق من أن المستخدم صحيح
     if user_from_payload != user_id:
-        await message.reply_text(
-            "❌ خطأ: عدم تطابق بيانات المستخدم"
-        )
-        logger.error(f"❌ عدم تطابق: {user_from_payload} != {user_id}")
+        await message.reply_text("❌ خطأ: عدم تطابق بيانات المستخدم")
         return
 
     try:
-        # التحقق من الخطة
         if plan not in ['pro', 'ultra', 'supreme']:
             raise ValueError(f"خطة غير صحيحة: {plan}")
 
-        # الحصول على سعر الخطة
         expected_price, _ = PaymentSystem.get_plan_price(plan)
 
-        # التحقق من المبلغ
         if successful_payment.total_amount != expected_price:
             raise ValueError(f"مبلغ غير صحيح: {successful_payment.total_amount}")
 
-        # تحديث خطة المستخدم في قاعدة البيانات
         from config import ADMIN_ID
         db.set_user_plan(user_id, plan, ADMIN_ID)
 
-        # تسجيل الدفع
         PaymentSystem.log_payment(
-            user_id,
-            plan,
-            expected_price,
-            "completed",
+            user_id, plan, expected_price, "completed",
             successful_payment.telegram_payment_charge_id
         )
 
-        # الحصول على ملخص الدفع
-        summary = PaymentSystem.get_payment_summary(user_id, plan, expected_price)
-
-        # إرسال رسالة النجاح
-        success_message = (
-            f"<b>✅ دفع ناجح!</b>\n\n"
-            f"{summary}\n\n"
-            f"🎉 تم تفعيل خطتك بنجاح!\n"
-            f"استمتع بجميع المميزات الجديدة."
-        )
+        plan_info = PaymentSystem.get_plan_info(plan)
+        plan_name = plan_info.get('name', plan) if plan_info else plan
 
         await message.reply_text(
-            success_message,
+            f"════════════════════════════\n"
+            f"✅ <b>تم الدفع بنجاح!</b>\n"
+            f"════════════════════════════\n\n"
+            f"🎉 تم تفعيل خطة <b>{plan_name}</b>\n"
+            f"⭐ المبلغ: <b>{expected_price} نجمة</b>\n\n"
+            f"{'─'*28}\n"
+            f"استمتع بجميع المميزات الجديدة!",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("📊 عرض خطتي", callback_data="my_plan")],
                 [InlineKeyboardButton("🤖 إضافة بوت", callback_data="add_bot")],
+                [InlineKeyboardButton("🏠 القائمة الرئيسية", callback_data="main_menu")]
             ])
         )
 

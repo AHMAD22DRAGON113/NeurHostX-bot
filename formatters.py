@@ -97,14 +97,16 @@ class TextFormatter:
     """منسّق النصوص المتقدم"""
 
     @staticmethod
-    def create_divider(char: str = '═', length: int = 40) -> str:
-        """إنشاء فاصل"""
+    def create_divider(char: str = '═', length: int = 28) -> str:
+        """إنشاء فاصل موحّد"""
+        if char == '═':
+            return '════════════════════════════'
         return char * length
 
     @staticmethod
-    def create_header(title: str, char: str = '═', length: int = 40) -> str:
-        """إنشاء رأس قسم"""
-        divider = char * length
+    def create_header(title: str, char: str = '═', length: int = 28) -> str:
+        """إنشاء رأس قسم موحّد"""
+        divider = '════════════════════════════' if char == '═' else char * length
         return f"{divider}\n{title}\n{divider}"
 
     @staticmethod
@@ -223,15 +225,23 @@ class TextFormatter:
 
 class MessageBuilder:
     """بناء رسائل معقدة"""
+    DIVIDER = "════════════════════════════"
+    SUB_DIVIDER = "─" * 28
 
     def __init__(self):
         self.parts = []
 
     def add_header(self, title: str) -> 'MessageBuilder':
-        """إضافة رأس"""
-        self.parts.append(f"<b>{'═' * 40}</b>")
+        """إضافة رأس موحّد"""
+        self.parts.append(self.DIVIDER)
         self.parts.append(f"<b>{title}</b>")
-        self.parts.append(f"<b>{'═' * 40}</b>")
+        self.parts.append(self.DIVIDER)
+        return self
+
+    def add_subheader(self, title: str) -> 'MessageBuilder':
+        """إضافة عنوان فرعي"""
+        self.parts.append(f"\n<b>{title}</b>")
+        self.parts.append(self.SUB_DIVIDER)
         return self
 
     def add_text(self, text: str) -> 'MessageBuilder':

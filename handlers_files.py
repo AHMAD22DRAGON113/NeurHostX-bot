@@ -22,128 +22,140 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 async def file_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
-    """مدير الملفات المحسن"""
+    """مدير الملفات المحسّن مع دعم التنقل بين المجلدات"""
     query = update.callback_query
     await query.answer()
     
     try:
-        bot_id = get_bot_id_from_callback(query.data)
-        if not bot_id:
-            await query.answer("❌ خطأ", show_alert=True)
-            return
+        # دعم التنقل: files_ID أو browse_ID_subpath
+        data = query.data
+        sub_path = ""
+        if data.startswith("browse_"):
+            # format: browse_{bot_id}_{encoded_subpath}
+            parts = data.split("_", 2)
+            bot_id = int(parts[1])
+            sub_path = parts[2].replace("|", "/") if len(parts) > 2 else ""
+        else:
+            bot_id = get_bot_id_from_callback(data)
+            if not bot_id:
+                await query.answer("❌ خطأ", show_alert=True)
+                return
         
         bot = db.get_bot(bot_id)
-        
         if not bot:
             await query.edit_message_text(
-                "❌ البوت غير موجود",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔙 رجوع", callback_data="my_bots")
-                ]])
+                "════════════════════════════\n❌ <b>البوت غير موجود</b>\n════════════════════════════",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 رجوع", callback_data="my_bots")]]),
+                parse_mode="HTML"
             )
             return
         
         bot_path = Path(BOTS_DIR) / bot[5]
+        current_path = (bot_path / sub_path).resolve() if sub_path else bot_path.resolve()
+        
+        # التحقق الأمني: لا نخرج من مجلد البوت
+        if not str(current_path).startswith(str(bot_path.resolve())):
+            current_path = bot_path.resolve()
+            sub_path = ""
         
         if not bot_path.exists():
             await query.edit_message_text(
-                "❌ مجلد البوت غير موجود",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔙 رجوع", callback_data=f"manage_{bot_id}")
-                ]])
+                "════════════════════════════\n❌ <b>مجلد البوت غير موجود</b>\n════════════════════════════",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 رجوع", callback_data=f"manage_{bot_id}")]]),
+                parse_mode="HTML"
             )
             return
         
-        # جمع معلومات الملفات
-        items = []
+        # جمع الملفات والمجلدات
+        dirs = []
+        files = []
         total_size = 0
-        dir_count = 0
-        file_count = 0
         
         try:
-            for item in sorted(bot_path.iterdir()):
+            for item in sorted(current_path.iterdir()):
                 if item.name.startswith('.') or item.name == '__pycache__':
                     continue
-                
                 if item.is_dir():
-                    items.append((item.name, True, "", 0))
-                    dir_count += 1
+                    dirs.append(item.name)
                 else:
                     size_bytes = item.stat().st_size
-                    size_str = get_file_size(item)
-                    items.append((item.name, False, size_str, size_bytes))
                     total_size += size_bytes
-                    file_count += 1
+                    files.append((item.name, get_file_size(item), size_bytes))
         except Exception as e:
-            logger.error(f"خطأ قراءة مجلد البوت: {e}")
+            logger.error(f"خطأ قراءة مجلد: {e}")
         
-        # تنسيق الحجم الإجمالي
+        # تحديد مسار العرض
+        display_path = f"/{sub_path}" if sub_path else "/"
+        
         if total_size < 1024:
-            total_size_str = f"{total_size} B"
-        elif total_size < 1024 * 1024:
-            total_size_str = f"{total_size/1024:.1f} KB"
+            size_str = f"{total_size} B"
+        elif total_size < 1024*1024:
+            size_str = f"{total_size/1024:.1f} KB"
         else:
-            total_size_str = f"{total_size/(1024*1024):.1f} MB"
+            size_str = f"{total_size/(1024*1024):.1f} MB"
         
-        if not items:
-            text = (
-                f"📁 <b>مدير الملفات</b>\n"
-                f"{'═' * 40}\n\n"
-                f"🤖 البوت: <code>{safe_html_escape(bot[3])}</code>\n\n"
-                f"📭 المجلد فارغ - لا توجد ملفات"
-            )
-            keyboard = [
-                [InlineKeyboardButton("📤 رفع ملف", callback_data=f"upload_file_{bot_id}")],
-                [InlineKeyboardButton("🔙 رجوع", callback_data=f"manage_{bot_id}")]
-            ]
-        else:
-            text = (
-                f"📁 <b>مدير الملفات</b>\n"
-                f"{'═' * 40}\n\n"
-                f"🤖 البوت: <code>{safe_html_escape(bot[3])}</code>\n"
-                f"📊 الملفات: {file_count} | المجلدات: {dir_count}\n"
-                f"💾 الحجم: {total_size_str}\n"
-                f"{'─' * 40}\n\n"
-            )
-            
-            keyboard = []
-            
-            # عرض الملفات
-            for name, is_dir, size, _ in items[:15]:
-                if is_dir:
-                    text += f"📁 <code>{name}/</code>\n"
-                else:
-                    icon = get_file_icon(name)
-                    text += f"{icon} <code>{name}</code> ({size})\n"
-                    
-                    # أزرار الملفات
-                    if not is_dir:
-                        row = []
-                        short_name = name[:8] + "..." if len(name) > 10 else name
-                        row.append(InlineKeyboardButton(f"👁️ {short_name}", callback_data=f"viewfile_{bot_id}_{name}"))
-                        row.append(InlineKeyboardButton("✏️", callback_data=f"editfile_{bot_id}_{name}"))
-                        row.append(InlineKeyboardButton("📥", callback_data=f"downloadfile_{bot_id}_{name}"))
-                        row.append(InlineKeyboardButton("🗑️", callback_data=f"deletefile_{bot_id}_{name}"))
-                        keyboard.append(row)
-            
-            if len(items) > 15:
-                text += f"\n... و {len(items) - 15} عناصر إضافية"
-            
-            # أزرار التحكم
+        text = (
+            f"════════════════════════════\n"
+            f"════════════════════════════\n"
+        f"📁 <b>مدير الملفات</b>\n"
+        f"════════════════════════════\n\n"
+            f"🤖 <b>{safe_html_escape(bot[3])}</b>\n"
+            f"📂 المسار: <code>{display_path}</code>\n"
+            f"📊 {len(files)} ملف | {len(dirs)} مجلد | {size_str}\n"
+            f"{'─'*28}\n\n"
+        )
+        
+        keyboard = []
+        
+        # زر العودة للمجلد الأعلى
+        if sub_path:
+            parent = "/".join(sub_path.split("/")[:-1])
+            if parent:
+                parent_cb = f"browse_{bot_id}_{parent.replace('/', '|')}"
+            else:
+                parent_cb = f"files_{bot_id}"
+            keyboard.append([InlineKeyboardButton("⬆️ رجوع للمجلد الأعلى", callback_data=parent_cb)])
+        
+        # عرض المجلدات أولاً
+        for dname in dirs[:8]:
+            enc = (sub_path + "/" + dname if sub_path else dname).replace("/", "|")
+            text += f"📁 <b>{safe_html_escape(dname)}/</b>\n"
+            keyboard.append([InlineKeyboardButton(f"📂 {dname}", callback_data=f"browse_{bot_id}_{enc}")])
+        
+        # عرض الملفات
+        for fname, fsize, _ in files[:12]:
+            icon = get_file_icon(fname)
+            text += f"{icon} <code>{safe_html_escape(fname)}</code>  <i>{fsize}</i>\n"
+            # ترميز اسم الملف مع المسار الفرعي
+            full_rel = (sub_path + "/" + fname if sub_path else fname)
+            encoded = full_rel.replace("/", "|")
+            short = fname[:10] + "…" if len(fname) > 12 else fname
             keyboard.append([
-                InlineKeyboardButton("📤 رفع ملف", callback_data=f"upload_file_{bot_id}"),
-                InlineKeyboardButton("🔄 استبدال", callback_data=f"replace_file_{bot_id}")
+                InlineKeyboardButton(f"👁️ {short}", callback_data=f"viewfile_{bot_id}_{encoded}"),
+                InlineKeyboardButton("✏️", callback_data=f"editfile_{bot_id}_{encoded}"),
+                InlineKeyboardButton("📥", callback_data=f"downloadfile_{bot_id}_{encoded}"),
+                InlineKeyboardButton("🗑️", callback_data=f"deletefile_{bot_id}_{encoded}"),
             ])
-            keyboard.append([
-                InlineKeyboardButton("📥 تحميل الكل (ZIP)", callback_data=f"download_all_{bot_id}"),
-                InlineKeyboardButton("🔄 تحديث", callback_data=f"files_{bot_id}")
-            ])
-            keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data=f"manage_{bot_id}")])
+        
+        extra = (len(dirs) - 8) + (len(files) - 12)
+        if extra > 0:
+            text += f"\n<i>... و {extra} عنصر إضافي</i>"
+        
+        if not dirs and not files:
+            text += "📭 <i>المجلد فارغ</i>"
+        
+        # أزرار التحكم
+        keyboard.append([
+            InlineKeyboardButton("📤 رفع ملف", callback_data=f"upload_file_{bot_id}"),
+            InlineKeyboardButton("📥 تحميل الكل", callback_data=f"download_all_{bot_id}")
+        ])
+        keyboard.append([
+            InlineKeyboardButton("🔄 تحديث", callback_data=f"files_{bot_id}"),
+            InlineKeyboardButton("🔙 رجوع", callback_data=f"manage_{bot_id}")
+        ])
         
         await query.edit_message_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="HTML"
+            text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML"
         )
         
     except Exception as e:
@@ -153,6 +165,7 @@ async def file_manager(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
 # ============================================================================
 # عرض الملفات
 # ============================================================================
+
 
 async def view_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
     """عرض محتوى الملف"""
@@ -235,9 +248,9 @@ async def view_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         
         text = (
             f"{icon} <b>{safe_html_escape(filename)}</b>\n"
-            f"{'─' * 40}\n"
+            f"────────────────────────────\n"
             f"💾 الحجم: {get_file_size(file_path)}\n"
-            f"{'─' * 40}\n\n"
+            f"────────────────────────────\n\n"
             f"<code>{safe_html_escape(display_content)}</code>"
         )
         
@@ -268,7 +281,7 @@ async def view_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
 # ============================================================================
 
 async def download_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
-    """تحميل ملف واحد"""
+    """تحميل ملف واحد - يدعم المسارات الفرعية"""
     query = update.callback_query
     await query.answer("⏳ جاري التحضير...")
     
@@ -279,7 +292,10 @@ async def download_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
             return
         
         bot_id = int(parts[1])
-        filename = parts[2]
+        # دعم المسارات المشفرة بـ |
+        encoded_name = parts[2]
+        filename = encoded_name.replace("|", "/")
+        display_name = filename.split("/")[-1]  # اسم الملف للعرض
         
         bot = db.get_bot(bot_id)
         if not bot:
@@ -287,10 +303,10 @@ async def download_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
             return
         
         bot_path = Path(BOTS_DIR) / bot[5]
-        file_path = bot_path / filename
+        file_path = (bot_path / filename).resolve()
         
         # التحقق من الأمان
-        if not is_safe_path(bot_path, file_path):
+        if not str(file_path).startswith(str(bot_path.resolve())):
             await query.answer("⛔ الوصول مرفوض", show_alert=True)
             return
         
@@ -300,8 +316,14 @@ async def download_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         
         await context.bot.send_document(
             chat_id=update.effective_user.id,
-            document=InputFile(str(file_path), filename=filename),
-            caption=f"📥 <b>تحميل ملف</b>\n\n📄 {safe_html_escape(filename)}\n💾 {get_file_size(file_path)}",
+            document=InputFile(str(file_path), filename=display_name),
+            caption=(
+                f"════════════════════════════\n"
+                f"📥 <b>تحميل ملف</b>\n"
+                f"════════════════════════════\n\n"
+                f"📄 {safe_html_escape(display_name)}\n"
+                f"💾 {get_file_size(file_path)}"
+            ),
             parse_mode="HTML"
         )
         
@@ -382,9 +404,10 @@ async def upload_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         context.user_data['upload_bot_id'] = bot_id
         
         await query.message.reply_text(
-            "📤 <b>رفع ملف جديد</b>\n"
-            f"{'─' * 35}\n\n"
-            "📎 أرسل الملف الذي تريد رفعه\n\n"
+            f"════════════════════════════\n"
+            f"📤 <b>رفع ملف جديد</b>\n"
+            f"════════════════════════════\n\n"
+            f"📎 أرسل الملف الذي تريد رفعه\n"
             f"📏 الحد الأقصى: {MAX_FILE_SIZE_MB} MB\n\n"
             "❌ للإلغاء أرسل /cancel",
             parse_mode="HTML"
@@ -420,10 +443,11 @@ async def replace_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         context.user_data['replace_bot_id'] = bot_id
         
         await query.message.reply_text(
-            "🔄 <b>استبدال الملف الرئيسي</b>\n"
-            f"{'─' * 35}\n\n"
-            "📎 أرسل الملف الجديد\n\n"
-            "💡 سيتم إنشاء نسخة احتياطية من الملف القديم\n\n"
+            f"════════════════════════════\n"
+            f"🔄 <b>استبدال الملف الرئيسي</b>\n"
+            f"════════════════════════════\n\n"
+            f"📎 أرسل الملف الجديد\n"
+            f"💡 سيتم إنشاء نسخة احتياطية من الملف القديم\n\n"
             "❌ للإلغاء أرسل /cancel",
             parse_mode="HTML"
         )
@@ -492,7 +516,7 @@ async def edit_file_start(update: Update, context: ContextTypes.DEFAULT_TYPE, db
         
         await query.message.reply_text(
             f"✏️ <b>تعديل الملف</b>\n"
-            f"{'─' * 35}\n\n"
+            f"────────────────────────────\n\n"
             f"📄 الملف: <code>{safe_html_escape(filename)}</code>\n\n"
             "📝 أرسل المحتوى الجديد:\n"
             "• نص عادي للمحتوى الجديد\n"
@@ -539,7 +563,7 @@ async def handle_file_edit(update: Update, context: ContextTypes.DEFAULT_TYPE, d
         
         await update.message.reply_text(
             f"✅ <b>تم تحديث الملف</b>\n"
-            f"{'─' * 35}\n\n"
+            f"────────────────────────────\n\n"
             f"📄 الملف: <code>{safe_html_escape(edit_file_data['filename'])}</code>\n"
             f"💾 نسخة احتياطية: <code>{edit_file_data['filename']}.bak</code>",
             parse_mode="HTML"
@@ -591,7 +615,7 @@ async def delete_file(update: Update, context: ContextTypes.DEFAULT_TYPE, db):
         
         text = (
             f"⚠️ <b>تأكيد حذف الملف</b>\n"
-            f"{'─' * 35}\n\n"
+            f"────────────────────────────\n\n"
             f"📄 الملف: <code>{safe_html_escape(filename)}</code>\n\n"
             f"❗ لا يمكن التراجع عن هذا الإجراء"
         )
